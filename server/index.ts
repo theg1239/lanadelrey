@@ -162,7 +162,12 @@ async function buildInsights(transcript: string) {
 function buildUiSchema(
   transcript: string,
   segments: Array<{ start_ms: number; end_ms: number; text: string }>,
-  insights: { summary?: string; intent?: string | null; entities?: Array<{ type: string; value: string }>; obligations?: Array<{ text: string }> }
+  insights: {
+    summary?: string;
+    intent?: string | null;
+    entities?: Array<{ type?: string; value?: string }>;
+    obligations?: Array<{ text?: string }>;
+  }
 ) {
   const preview = segments.slice(0, 3).map((s) => ({
     type: "timestamp",
@@ -178,11 +183,11 @@ function buildUiSchema(
       { type: "text", value: insights.intent ? `Intent: ${insights.intent}` : "Intent: unknown" },
       ...(insights.entities || []).map((e) => ({
         type: "text",
-        value: `Entity: ${e.type} = ${e.value}`,
+        value: `Entity: ${e.type ?? "unknown"} = ${e.value ?? "unknown"}`,
       })),
       ...(insights.obligations || []).map((o) => ({
         type: "text",
-        value: `Obligation: ${o.text}`,
+        value: `Obligation: ${o.text ?? ""}`,
       })),
       ...preview,
     ],
@@ -233,7 +238,16 @@ Bun.serve({
       }
 
       if (url.pathname.endsWith("/insights")) {
-        const row = db.query("SELECT * FROM insights WHERE recording_id = ?").get(id);
+        const row = db
+          .query<{
+            summary: string | null;
+            intent: string | null;
+            entities_json: string | null;
+            obligations_json: string | null;
+            regulatory_json: string | null;
+            ui_json: string | null;
+          }, [string]>("SELECT * FROM insights WHERE recording_id = ?")
+          .get(id);
         if (!row) return jsonResponse({ error: "Not found" }, 404, req);
         return jsonResponse({
           recording_id: id,
