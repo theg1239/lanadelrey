@@ -5,33 +5,30 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Phone, ShieldCheck, Landmark, Scale, ArrowRight, ArrowLeft, Check, AudioWaveform, } from "lucide-react";
+
 const useCases = [
     {
         id: "transcription",
-        icon: Phone,
         title: "Call Transcription",
         desc: "Transcribe and analyze customer support, onboarding, and verification calls.",
     },
     {
         id: "kyc",
-        icon: ShieldCheck,
         title: "KYC Verification",
         desc: "Process tele-KYC calls with identity verification and compliance checks.",
     },
     {
         id: "collections",
-        icon: Landmark,
         title: "Collections Analysis",
         desc: "Track payment promises, commitments, and customer intent from collections calls.",
     },
     {
         id: "compliance",
-        icon: Scale,
         title: "Compliance Audit",
         desc: "Scan calls for regulatory phrases, consent statements, and compliance gaps.",
     },
 ];
+
 const pipelineOptions = [
     {
         id: "noise",
@@ -70,35 +67,43 @@ const pipelineOptions = [
         default: false,
     },
 ];
+
 const TOTAL_STEPS = 4;
+
 export function OnboardingFlow() {
     const [step, setStep] = useState(0);
     const [selectedUseCase, setSelectedUseCase] = useState<string | null>(null);
-    const [toggles, setToggles] = useState<Record<string, boolean>>(() => Object.fromEntries(pipelineOptions.map((o) => [o.id, o.default])));
+    const [toggles, setToggles] = useState<Record<string, boolean>>(() =>
+        Object.fromEntries(pipelineOptions.map((o) => [o.id, o.default]))
+    );
+
     const handleToggle = useCallback((id: string, checked: boolean) => {
         setToggles((prev) => ({ ...prev, [id]: checked }));
     }, []);
-    const canProceed = step === 0 || step === 2 || step === 3 || (step === 1 && selectedUseCase);
-    return (<div className="min-h-[100dvh] flex flex-col bg-background">
-            
+
+    const canProceed =
+        step === 0 || step === 2 || step === 3 || (step === 1 && selectedUseCase);
+
+    return (
+        <div className="min-h-[100dvh] flex flex-col bg-background">
             <header className="shrink-0 border-b border-border bg-card/30 backdrop-blur-sm">
                 <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
-                    <a href="/" className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-                            <AudioWaveform className="h-3.5 w-3.5 text-primary-foreground"/>
-                        </div>
-                        <span className="text-sm font-semibold tracking-tight">
-                            GeoGood
-                        </span>
+                    <a href="/" className="text-sm font-semibold tracking-tight text-foreground">
+                        Delrey
                     </a>
 
-                    
                     <div className="flex items-center gap-2">
-                        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (<div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === step
-                ? "w-6 bg-primary"
-                : i < step
-                    ? "w-1.5 bg-primary/50"
-                    : "w-1.5 bg-border"}`}/>))}
+                        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+                            <div
+                                key={i}
+                                className={`h-1.5 rounded-full transition-all duration-300 ${i === step
+                                        ? "w-6 bg-primary"
+                                        : i < step
+                                            ? "w-1.5 bg-primary/50"
+                                            : "w-1.5 bg-border"
+                                    }`}
+                            />
+                        ))}
                     </div>
 
                     <span className="text-xs font-mono text-muted-foreground">
@@ -107,19 +112,22 @@ export function OnboardingFlow() {
                 </div>
             </header>
 
-            
             <main className="flex-1 flex items-center justify-center px-6 py-12">
                 <div className="w-full max-w-2xl">
                     <AnimatePresence mode="wait">
-                        
-                        {step === 0 && (<motion.div key="welcome" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="text-center space-y-6">
-                                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring", stiffness: 200 }} className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center glow-amber">
-                                    <AudioWaveform className="w-8 h-8 text-primary"/>
-                                </motion.div>
-
+                        {/* Step 0: Welcome */}
+                        {step === 0 && (
+                            <motion.div
+                                key="welcome"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="text-center space-y-6"
+                            >
                                 <div className="space-y-2">
                                     <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                                        Welcome to GeoGood
+                                        Welcome to Delrey
                                     </h1>
                                     <p className="text-muted-foreground font-serif max-w-md mx-auto leading-relaxed">
                                         Let&apos;s set up your audio intelligence pipeline. This takes
@@ -128,14 +136,31 @@ export function OnboardingFlow() {
                                 </div>
 
                                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                                    {["Transcription", "Entity Extraction", "Intent Analysis", "Compliance"].map((tag) => (<Badge key={tag} variant="secondary" className="text-xs font-mono px-2 py-0.5">
-                                            {tag}
-                                        </Badge>))}
+                                    {["Transcription", "Entity Extraction", "Intent Analysis", "Compliance"].map(
+                                        (tag) => (
+                                            <Badge
+                                                key={tag}
+                                                variant="secondary"
+                                                className="text-xs font-mono px-2 py-0.5"
+                                            >
+                                                {tag}
+                                            </Badge>
+                                        )
+                                    )}
                                 </div>
-                            </motion.div>)}
+                            </motion.div>
+                        )}
 
-                        
-                        {step === 1 && (<motion.div key="usecase" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
+                        {/* Step 1: Use Case */}
+                        {step === 1 && (
+                            <motion.div
+                                key="usecase"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-6"
+                            >
                                 <div className="text-center space-y-2">
                                     <h2 className="text-2xl font-bold tracking-tight text-foreground">
                                         What are you analyzing?
@@ -147,38 +172,50 @@ export function OnboardingFlow() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {useCases.map((uc) => {
-                const Icon = uc.icon;
-                const isSelected = selectedUseCase === uc.id;
-                return (<Card key={uc.id} onClick={() => setSelectedUseCase(uc.id)} className={`cursor-pointer p-4 transition-all duration-200 ${isSelected
-                        ? "border-primary bg-primary/[0.05] ring-1 ring-primary/30"
-                        : "border-border hover:border-muted-foreground/30 bg-card/30"}`}>
-                                                <div className="flex items-start gap-3">
-                                                    <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 transition-colors ${isSelected
-                        ? "bg-primary/20 border border-primary/30"
-                        : "bg-muted border border-border"}`}>
-                                                        <Icon className={`w-4 h-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`}/>
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-sm font-semibold text-foreground">
-                                                            {uc.title}
-                                                        </h3>
-                                                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                                            {uc.desc}
-                                                        </p>
-                                                    </div>
+                                        const isSelected = selectedUseCase === uc.id;
+                                        return (
+                                            <Card
+                                                key={uc.id}
+                                                onClick={() => setSelectedUseCase(uc.id)}
+                                                className={`relative cursor-pointer p-4 transition-all duration-200 ${isSelected
+                                                        ? "border-primary bg-primary/[0.05] ring-1 ring-primary/30"
+                                                        : "border-border hover:border-muted-foreground/30 bg-card/30"
+                                                    }`}
+                                            >
+                                                <div>
+                                                    <h3 className="text-sm font-semibold text-foreground">
+                                                        {uc.title}
+                                                    </h3>
+                                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                                        {uc.desc}
+                                                    </p>
                                                 </div>
-                                                {isSelected && (<motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute top-3 right-3">
-                                                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                                            <Check className="w-3 h-3 text-primary-foreground"/>
-                                                        </div>
-                                                    </motion.div>)}
-                                            </Card>);
-            })}
+                                                {isSelected && (
+                                                    <motion.div
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: 1 }}
+                                                        className="absolute top-3 right-3"
+                                                    >
+                                                        <div className="w-2 h-2 rounded-full bg-primary" />
+                                                    </motion.div>
+                                                )}
+                                            </Card>
+                                        );
+                                    })}
                                 </div>
-                            </motion.div>)}
+                            </motion.div>
+                        )}
 
-                        
-                        {step === 2 && (<motion.div key="configure" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
+                        {/* Step 2: Configure Pipeline */}
+                        {step === 2 && (
+                            <motion.div
+                                key="configure"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-6"
+                            >
                                 <div className="text-center space-y-2">
                                     <h2 className="text-2xl font-bold tracking-tight text-foreground">
                                         Configure your pipeline
@@ -189,7 +226,11 @@ export function OnboardingFlow() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    {pipelineOptions.map((opt) => (<Card key={opt.id} className="flex items-center justify-between p-4 bg-card/30 border-border">
+                                    {pipelineOptions.map((opt) => (
+                                        <Card
+                                            key={opt.id}
+                                            className="flex items-center justify-between p-4 bg-card/30 border-border"
+                                        >
                                             <div className="space-y-0.5">
                                                 <p className="text-sm font-medium text-foreground">
                                                     {opt.label}
@@ -198,17 +239,28 @@ export function OnboardingFlow() {
                                                     {opt.desc}
                                                 </p>
                                             </div>
-                                            <Switch checked={toggles[opt.id]} onCheckedChange={(checked) => handleToggle(opt.id, checked)}/>
-                                        </Card>))}
+                                            <Switch
+                                                checked={toggles[opt.id]}
+                                                onCheckedChange={(checked) =>
+                                                    handleToggle(opt.id, checked)
+                                                }
+                                            />
+                                        </Card>
+                                    ))}
                                 </div>
-                            </motion.div>)}
+                            </motion.div>
+                        )}
 
-                        
-                        {step === 3 && (<motion.div key="ready" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="text-center space-y-6">
-                                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, delay: 0.1 }} className="mx-auto w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                                    <Check className="w-8 h-8 text-emerald-500"/>
-                                </motion.div>
-
+                        {/* Step 3: Ready */}
+                        {step === 3 && (
+                            <motion.div
+                                key="ready"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="text-center space-y-6"
+                            >
                                 <div className="space-y-2">
                                     <h2 className="text-2xl font-bold tracking-tight text-foreground">
                                         You&apos;re all set
@@ -219,7 +271,6 @@ export function OnboardingFlow() {
                                     </p>
                                 </div>
 
-                                
                                 <Card className="max-w-sm mx-auto p-4 bg-card/30 border-border text-left space-y-3">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
@@ -227,7 +278,7 @@ export function OnboardingFlow() {
                                         </span>
                                         <Badge variant="outline" className="text-xs">
                                             {useCases.find((u) => u.id === selectedUseCase)?.title ||
-                "General"}
+                                                "General"}
                                         </Badge>
                                     </div>
                                     <div className="border-t border-border pt-3 space-y-1.5">
@@ -236,41 +287,65 @@ export function OnboardingFlow() {
                                         </span>
                                         <div className="flex flex-wrap gap-1.5 mt-1">
                                             {pipelineOptions
-                .filter((o) => toggles[o.id])
-                .map((o) => (<Badge key={o.id} variant="secondary" className="text-[10px] font-mono">
+                                                .filter((o) => toggles[o.id])
+                                                .map((o) => (
+                                                    <Badge
+                                                        key={o.id}
+                                                        variant="secondary"
+                                                        className="text-[10px] font-mono"
+                                                    >
                                                         {o.label}
-                                                    </Badge>))}
+                                                    </Badge>
+                                                ))}
                                         </div>
                                     </div>
                                 </Card>
 
-                                <a href="/app" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all glow-amber">
-                                    Launch Platform
-                                    <ArrowRight className="w-4 h-4"/>
+                                <a
+                                    href="/app"
+                                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+                                >
+                                    Launch Platform →
                                 </a>
-                            </motion.div>)}
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </div>
             </main>
 
-            
             <footer className="shrink-0 border-t border-border bg-card/30">
                 <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
-                    <Button variant="ghost" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className="gap-1.5">
-                        <ArrowLeft className="w-3.5 h-3.5"/>
-                        Back
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStep((s) => Math.max(0, s - 1))}
+                        disabled={step === 0}
+                        className="gap-1.5"
+                    >
+                        ← Back
                     </Button>
 
-                    {step < TOTAL_STEPS - 1 ? (<Button size="sm" onClick={() => setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1))} disabled={!canProceed} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-                            Continue
-                            <ArrowRight className="w-3.5 h-3.5"/>
-                        </Button>) : (<a href="/app">
-                            <Button size="sm" className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-                                Launch Platform
-                                <ArrowRight className="w-3.5 h-3.5"/>
+                    {step < TOTAL_STEPS - 1 ? (
+                        <Button
+                            size="sm"
+                            onClick={() => setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1))}
+                            disabled={!canProceed}
+                            className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                            Continue →
+                        </Button>
+                    ) : (
+                        <a href="/app">
+                            <Button
+                                size="sm"
+                                className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                            >
+                                Launch Platform →
                             </Button>
-                        </a>)}
+                        </a>
+                    )}
                 </div>
             </footer>
-        </div>);
+        </div>
+    );
 }
