@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audio Intelligence Upload</title>
+  <style>
+    :root { --bg: #0f1115; --panel: #161a22; --text: #e6e6e6; --muted: #9aa3b2; --accent: #66e3a2; --border: #222938; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 980px; margin: 48px auto; padding: 0 20px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    p { color: var(--muted); }
+    input[type="file"] { display: block; margin: 16px 0; }
+    button { background: var(--accent); border: 0; color: #0b0f0c; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    pre { background: #0b0f14; color: #c7d1e0; padding: 12px; border-radius: 8px; overflow: auto; }
+    .status { margin-top: 12px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .panel { background: #0b0f14; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .panel h3 { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+    .segment { padding: 6px 0; border-bottom: 1px dashed #1d2433; }
+    .segment:last-child { border-bottom: none; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #1d2737; color: var(--muted); font-size: 12px; }
+    .list { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #0b0f14; }
+    .list-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #1d2433; }
+    .list-item:last-child { border-bottom: none; }
+    .link { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 12px; }
+    @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Audio Intelligence Upload</h1>
+      <p>Upload an audio file to transcribe with Whisper and view structured insights.</p>
+
+      <input id="audio" type="file" accept="audio/*" />
+      <button id="submit">Transcribe</button>
+      <div class="status" id="status">Idle</div>
+
+      <div class="grid">
+        <div class="panel">
+          <h3>Transcript</h3>
+          <div id="transcript"></div>
+        </div>
+        <div class="panel">
+          <h3>Insights (JSON UI)</h3>
+          <div id="ui"></div>
+        </div>
+      </div>
+
+      <h3>Recordings</h3>
+      <div class="list" id="recordings"></div>
+
+      <h3>Raw Response</h3>
+      <pre id="output">{}</pre>
+    </div>
+  </div>
+
+  <script>
+    const audioInput = document.getElementById('audio');
+    const submitBtn = document.getElementById('submit');
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const transcriptEl = document.getElementById('transcript');
+    const uiEl = document.getElementById('ui');
+    const recordingsEl = document.getElementById('recordings');
+
+    function renderTranscript(segments = []) {
+      transcriptEl.innerHTML = '';
+      segments.forEach((s) => {
+        const div = document.createElement('div');
+        div.className = 'segment';
+        div.innerHTML = `
+          <span class="pill">${Math.round(s.start_ms / 1000)}s</span>
+          <span>${s.text}</span>
+        `;
+        transcriptEl.appendChild(div);
+      });
+    }
+
+    function renderUi(schema) {
+      uiEl.innerHTML = '';
+      if (!schema || !schema.items) return;
+
+      const title = document.createElement('div');
+      title.className = 'pill';
+      title.textContent = schema.title || 'Panel';
+      uiEl.appendChild(title);
+
+      schema.items.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'segment';
+        if (item.type === 'text') {
+          row.textContent = item.value;
+        } else if (item.type === 'timestamp') {
+          row.innerHTML = `<span class="pill">${Math.round(item.ms / 1000)}s</span> ${item.label}`;
+        } else {
+          row.textContent = JSON.stringify(item);
+        }
+        uiEl.appendChild(row);
+      });
+    }
+
+    async function loadRecordings() {
+      const res = await fetch('/v1/recordings');
+      const data = await res.json();
+      const items = data.recordings || [];
+      recordingsEl.innerHTML = '';
+      items.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'list-item';
+        row.innerHTML = `
+          <div>
+            <div>${r.filename || 'audio'}</div>
+            <div class="pill">${r.id}</div>
+          </div>
+          <div class="link" data-id="${r.id}">Load</div>
+        `;
+        recordingsEl.appendChild(row);
+      });
+
+      recordingsEl.querySelectorAll('.link').forEach((el) => {
+        el.addEventListener('click', async (e) => {
+          const id = e.target.getAttribute('data-id');
+          if (!id) return;
+          statusEl.textContent = 'Loading...';
+          const [tRes, iRes] = await Promise.all([
+            fetch(`/v1/recordings/${id}/transcript`),
+            fetch(`/v1/recordings/${id}/insights`),
+          ]);
+          const tData = await tRes.json();
+          const iData = await iRes.json();
+          renderTranscript(tData.segments || []);
+          renderUi(iData.ui || null);
+          outputEl.textContent = JSON.stringify({ transcript: tData, insights: iData }, null, 2);
+          statusEl.textContent = 'Loaded';
+        });
+      });
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      const file = audioInput.files[0];
+      if (!file) {
+        statusEl.textContent = 'Please select an audio file.';
+        return;
+      }
+      statusEl.textContent = 'Uploading...';
+
+      const form = new FormData();
+      form.append('audio', file);
+
+      try {
+        const res = await fetch('/v1/transcribe', { method: 'POST', body: form });
+        const data = await res.json();
+        outputEl.textContent = JSON.stringify(data, null, 2);
+        renderTranscript(data.segments || []);
+        renderUi(data.ui || null);
+        await loadRecordings();
+        statusEl.textContent = 'Done';
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + (err?.message || 'unknown');
+      }
+    });
+
+    loadRecordings().catch(() => {});
+  </script>
+</body>
+</html>
