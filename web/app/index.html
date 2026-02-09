@@ -6,7 +6,7 @@
     <title>The Orb - Voice Reactive</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* Overlay for manual start */
+        
         #startOverlay {
             position: fixed;
             top: 0;
@@ -79,188 +79,143 @@
         <div class="instruction">Listening...</div>
     </div>
 
-    <script>
-        const startOverlay = document.getElementById('startOverlay');
-        const startButton = document.getElementById('startButton');
-        const errorLog = document.getElementById('errorLog');
-        const instruction = document.querySelector('.instruction');
-        const canvas = document.getElementById('particleCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Blink Logic
-        const blinkBtn = document.getElementById('blinkBtn');
-        const orbContainer = document.getElementById('orbContainer');
-        let isOrbClosed = false;
-
-        blinkBtn.addEventListener('click', () => {
-            isOrbClosed = !isOrbClosed;
-            
-            if (isOrbClosed) {
-                orbContainer.classList.add('closed');
-                document.documentElement.style.setProperty('--close-scale', '0.05'); // Close eye
-                blinkBtn.innerText = "Open Orb";
-            } else {
-                orbContainer.classList.remove('closed');
-                document.documentElement.style.setProperty('--close-scale', '1'); // Open eye
-                blinkBtn.innerText = "Close Orb";
-            }
-        });
-
-        let audioContext;
-        let analyser;
-        let dataArray;
-        let isAudioInitialized = false;
-        let smoothedVolume = 1.0;
-        let particles = [];
-
-        // Resize Canvas
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            initParticles();
+    <script>const startOverlay = document.getElementById('startOverlay');
+const startButton = document.getElementById('startButton');
+const errorLog = document.getElementById('errorLog');
+const instruction = document.querySelector('.instruction');
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+const blinkBtn = document.getElementById('blinkBtn');
+const orbContainer = document.getElementById('orbContainer');
+let isOrbClosed = false;
+blinkBtn.addEventListener('click', () => {
+    isOrbClosed = !isOrbClosed;
+    if (isOrbClosed) {
+        orbContainer.classList.add('closed');
+        document.documentElement.style.setProperty('--close-scale', '0.05');
+        blinkBtn.innerText = "Open Orb";
+    }
+    else {
+        orbContainer.classList.remove('closed');
+        document.documentElement.style.setProperty('--close-scale', '1');
+        blinkBtn.innerText = "Close Orb";
+    }
+});
+let audioContext;
+let analyser;
+let dataArray;
+let isAudioInitialized = false;
+let smoothedVolume = 1.0;
+let particles = [];
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    initParticles();
+}
+window.addEventListener('resize', resize);
+class Particle {
+    constructor() {
+        this.init();
+    }
+    init() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 160 + Math.random() * 120;
+        this.angle = angle;
+        this.radius = dist;
+        this.size = Math.random() * 2.5 + 0.5;
+        this.color = Math.random() > 0.5 ? '#ff3e1c' : '#1c8cff';
+        this.speed = (Math.random() - 0.5) * 0.002;
+        this.floatOffset = Math.random() * 100;
+    }
+    update(audioVal) {
+        if (isOrbClosed)
+            return;
+        this.angle += this.speed;
+        const time = Date.now() * 0.001;
+        const unifiedBreath = Math.sin(time) * 15;
+        const individualFloat = Math.sin(time * 2 + this.floatOffset) * 5;
+        const diffusion = audioVal * 1.0;
+        const currentRadius = this.radius + unifiedBreath + individualFloat + diffusion;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const x = centerX + Math.cos(this.angle) * currentRadius;
+        const y = centerY + Math.sin(this.angle) * currentRadius;
+        ctx.beginPath();
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        const alpha = 0.15 + (Math.sin(time + this.floatOffset) * 0.1) + (audioVal / 500);
+        ctx.globalAlpha = Math.max(0.05, Math.min(alpha, 0.5));
+        ctx.fill();
+    }
+}
+function initParticles() {
+    particles = [];
+    for (let i = 0; i < 150; i++) {
+        particles.push(new Particle());
+    }
+}
+resize();
+function logError(msg) {
+    console.error(msg);
+    errorLog.innerText = msg;
+    startButton.innerText = "Retry";
+}
+async function initAudio() {
+    try {
+        startButton.innerText = "Requesting Access...";
+        if (window.location.protocol === 'file:') {
+            throw new Error("Local file access blocks microphone. Please run quickly via a local server (e.g., 'python -m http.server').");
         }
-        window.addEventListener('resize', resize);
-        
-        class Particle {
-            constructor() {
-                this.init();
-            }
-
-            init() {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 160 + Math.random() * 120; 
-                this.angle = angle;
-                this.radius = dist;
-                this.size = Math.random() * 2.5 + 0.5;
-                this.color = Math.random() > 0.5 ? '#ff3e1c' : '#1c8cff';
-                this.speed = (Math.random() - 0.5) * 0.002;
-                this.floatOffset = Math.random() * 100;
-            }
-
-            update(audioVal) {
-                if (isOrbClosed) return; // Don't animate particles if closed
-
-                this.angle += this.speed;
-                const time = Date.now() * 0.001;
-                const unifiedBreath = Math.sin(time) * 15;
-                const individualFloat = Math.sin(time * 2 + this.floatOffset) * 5;
-                const diffusion = audioVal * 1.0; 
-                
-                const currentRadius = this.radius + unifiedBreath + individualFloat + diffusion;
-                
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-                
-                const x = centerX + Math.cos(this.angle) * currentRadius;
-                const y = centerY + Math.sin(this.angle) * currentRadius;
-
-                ctx.beginPath();
-                ctx.arc(x, y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                
-                const alpha = 0.15 + (Math.sin(time + this.floatOffset) * 0.1) + (audioVal / 500); 
-                ctx.globalAlpha = Math.max(0.05, Math.min(alpha, 0.5));
-                ctx.fill();
-            }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Your browser does not support audio input or is blocking it.");
         }
-
-        function initParticles() {
-            particles = [];
-            for(let i = 0; i < 150; i++) {
-                particles.push(new Particle());
-            }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
         }
-        
-        resize();
-
-        function logError(msg) {
-            console.error(msg);
-            errorLog.innerText = msg;
-            startButton.innerText = "Retry";
+        const source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+        isAudioInitialized = true;
+        startOverlay.style.opacity = '0';
+        setTimeout(() => {
+            startOverlay.style.display = 'none';
+        }, 500);
+    }
+    catch (err) {
+        logError(err.message);
+    }
+}
+function updateAudioData() {
+    requestAnimationFrame(updateAudioData);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (isOrbClosed)
+        return;
+    let currentScale = 1.0;
+    let intensity = 0;
+    if (isAudioInitialized && analyser) {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
         }
-
-        async function initAudio() {
-            try {
-                startButton.innerText = "Requesting Access...";
-                
-                if (window.location.protocol === 'file:') {
-                    throw new Error("Local file access blocks microphone. Please run quickly via a local server (e.g., 'python -m http.server').");
-                }
-
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Your browser does not support audio input or is blocking it.");
-                }
-
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-
-                const source = audioContext.createMediaStreamSource(stream);
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256; 
-                source.connect(analyser);
-                
-                const bufferLength = analyser.frequencyBinCount;
-                dataArray = new Uint8Array(bufferLength);
-                
-                isAudioInitialized = true;
-                
-                startOverlay.style.opacity = '0';
-                setTimeout(() => {
-                    startOverlay.style.display = 'none';
-                }, 500);
-
-                // No need to call updateAudioData() here, the main loop handles it.
-            } catch (err) {
-                logError(err.message);
-            }
-        }
-
-        function updateAudioData() {
-            requestAnimationFrame(updateAudioData);
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (isOrbClosed) return;
-
-            let currentScale = 1.0;
-            let intensity = 0;
-
-            if (isAudioInitialized && analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                    sum += dataArray[i];
-                }
-                const average = sum / dataArray.length; // 0 to 255 usually
-                
-                // DIRECT ROBUST MAPPING - No Accumulation
-                // Filter low noise
-                const cleanVol = average < 5 ? 0 : average;
-                
-                // Map to scale (1.0 to 1.25 max)
-                // We divide by 400 effectively capping the effect
-                currentScale = 1.0 + (cleanVol / 400); 
-                
-                // Absolute Hard Limit Safety
-                if (currentScale > 1.25) currentScale = 1.25;
-                
-                intensity = Math.min(cleanVol / 100, 1);
-            }
-            
-            document.documentElement.style.setProperty('--audio-scale', currentScale);
-            document.documentElement.style.setProperty('--audio-intensity', intensity);
-            
-            // Update particles with a visual multiplier so they actually move
-            particles.forEach(p => p.update(intensity * 100));
-        }
-
-        startButton.addEventListener('click', initAudio);
-        updateAudioData();
-    </script>
+        const average = sum / dataArray.length;
+        const cleanVol = average < 5 ? 0 : average;
+        currentScale = 1.0 + (cleanVol / 400);
+        if (currentScale > 1.25)
+            currentScale = 1.25;
+        intensity = Math.min(cleanVol / 100, 1);
+    }
+    document.documentElement.style.setProperty('--audio-scale', currentScale);
+    document.documentElement.style.setProperty('--audio-intensity', intensity);
+    particles.forEach(p => p.update(intensity * 100));
+}
+startButton.addEventListener('click', initAudio);
+updateAudioData();
+</script>
 </body>
 </html>

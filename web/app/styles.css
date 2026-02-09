@@ -1,16 +1,16 @@
-/* Base Styles & Global Variables */
+
 :root {
   --primary: #ff3e1c;
   --secondary: #1c8cff;
   --bg-dark: #070708;
   --font-main: sans-serif;
   
-  /* Audio Reactive Variables */
+  
   --audio-scale: 1;
   --audio-speed: 6s;
   --audio-intensity: 0;
   
-  /* Blink State Variable (1 = Open, 0.02 = Closed) */
+  
   --close-scale: 1;
 }
 
@@ -41,7 +41,7 @@ body {
   flex-direction: column;
 }
 
-/* Background Animated Spheres */
+
 .background-effects {
   position: absolute;
   top: 0;
@@ -90,7 +90,7 @@ body {
   to { transform: translate(150px, 80px) scale(1.1); }
 }
 
-/* Orb UI Component */
+
 .orb-interface {
   position: relative;
   display: flex;
@@ -110,18 +110,18 @@ body {
   border-radius: 50%;
   rotate: 90deg;
   
-  /* Voice Reactive Glow & Scale */
+  
   filter: drop-shadow(0 0 10px rgba(255, 62, 28, calc(0.5 + var(--audio-intensity)))) 
           drop-shadow(0 0 10px rgba(28, 140, 255, calc(0.5 + var(--audio-intensity))));
   
-  /* Combined Transform: Voice Scale * Star Blink Scale */
-  /* Vanishes to a point when closed */
+  
+  
   transform: scale(calc(var(--audio-scale) * var(--close-scale)));
   opacity: var(--close-scale);
   transition: transform 0.4s cubic-bezier(0.68, -0.6, 0.32, 1.6), opacity 0.3s ease; 
 }
 
-/* Closed state specific adjustments */
+
 .orb-container.closed {
     filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.2));
 }
@@ -131,11 +131,11 @@ body {
   width: 200px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: #060606; /* Keep this deep black */
+  background: #060606; 
   filter: blur(24px);
   
-  /* Base Autonomous Breathe Animation Removed for stability */
-  /* animation: constantPulse 6s ease-in-out infinite; */
+  
+  
 }
 
 @keyframes constantPulse {
@@ -189,7 +189,7 @@ body {
   );
 }
 
-/* .orb-glare removed for non-glossy look */
+
 
 @keyframes orbRotate {
   0% { transform: rotate(0deg); }
@@ -207,7 +207,7 @@ body {
   transition: opacity 0.5s ease;
 }
 
-/* Blink Button Styles */
+
 #blinkBtn {
     position: fixed;
     bottom: 30px;
