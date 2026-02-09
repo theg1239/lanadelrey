@@ -201,7 +201,7 @@ export default function AppPage() {
     }, [result]);
     const isProcessing = status === "uploading" || status === "transcribing";
     const hasResult = result && status === "done";
-    return (<div className="h-dvh w-dvw flex overflow-hidden bg-background select-none">
+    return (<div className="h-dvh w-dvw flex overflow-hidden bg-background">
             
             <LeftSidebar />
 

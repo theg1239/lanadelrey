@@ -8,7 +8,8 @@ from typing import Any
 from dotenv import load_dotenv
 from sarvamai import SarvamAI
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 
 def get_client() -> SarvamAI:

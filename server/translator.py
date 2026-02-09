@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,22 @@ from typing import Any
 from dotenv import load_dotenv
 from sarvamai import SarvamAI
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+SCRIPT_LANGUAGE_HINTS: list[tuple[str, str]] = [
+    ("ta-IN", r"[\u0B80-\u0BFF]"),  # Tamil
+    ("kn-IN", r"[\u0C80-\u0CFF]"),  # Kannada
+]
+
+
+def infer_source_language(text: str, fallback: str) -> str:
+    if not text:
+        return fallback
+    for lang, pattern in SCRIPT_LANGUAGE_HINTS:
+        if re.search(pattern, text):
+            return lang
+    return fallback
 
 
 def get_client() -> SarvamAI:
@@ -26,9 +42,10 @@ def translate_text(
     if not text or text == "<nospeech>":
         return text
 
+    detected_source = infer_source_language(text, source_lang)
     response = client.text.translate(
         input=text,
-        source_language_code=source_lang,
+        source_language_code=detected_source,
         target_language_code=target_lang,
         speaker_gender="Male",
         mode="formal",
