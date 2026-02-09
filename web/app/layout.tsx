@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
+import { Poppins, Lora, Fira_Code } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const poppins = Poppins({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const sourceSerif = Source_Serif_4({
+const lora = Lora({
   subsets: ["latin"],
   variable: "--font-serif",
   display: "swap",
   weight: ["400", "500", "600", "700"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const firaCode = Fira_Code({
   subsets: ["latin"],
   variable: "--font-mono",
   display: "swap",
@@ -23,9 +24,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GeoGood — Audio Intelligence",
+  title: "Delrey — Audio Intelligence",
   description:
-    "Upload audio files, get time-aligned transcripts and structured insights powered by AI.",
+    "Enterprise-grade audio ingestion, transcription, and financial-speech understanding platform. Convert unstructured voice data into structured, actionable insights.",
 };
 
 export default function RootLayout({
@@ -35,8 +36,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <script
+        async
+        crossOrigin="anonymous"
+        src="https://tweakcn.com/live-preview.min.js"
+      />
       <body
-        className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} font-sans antialiased grain-overlay`}
+        className={`${poppins.variable} ${lora.variable} ${firaCode.variable} font-sans antialiased grain-overlay`}
       >
         {children}
       </body>

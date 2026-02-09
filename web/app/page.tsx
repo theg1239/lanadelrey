@@ -1,336 +1,389 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import {
-  ArrowLeft,
-  AlertCircle,
-  AudioWaveform,
-  FileAudio,
-  Braces,
-  Lightbulb,
-  Mic,
-  Brain,
-  ScanSearch,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { UploadZone } from "@/components/upload-zone";
-import { StatusStepper } from "@/components/status-stepper";
-import { ResultHeader } from "@/components/result-header";
-import { TranscriptViewer } from "@/components/transcript-viewer";
-import { InsightsPanel } from "@/components/insights-panel";
-import { JsonViewer } from "@/components/json-viewer";
-import { Waveform } from "@/components/ui/waveform";
-import { transcribeAudio } from "@/lib/api";
-import type { TranscriptionResult, UploadStatus } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
+import { LandingHero } from "@/components/landing-hero";
 
-const features = [
-  {
-    icon: Mic,
-    title: "Transcription",
-    desc: "Time-aligned ASR with word-level confidence scores",
-  },
-  {
-    icon: ScanSearch,
-    title: "Entity Extraction",
-    desc: "Amounts, dates, and named entities pulled from speech",
-  },
-  {
-    icon: Brain,
-    title: "Intent Analysis",
-    desc: "Classify what the speaker intends and any obligations",
-  },
-];
+// ── Feature Section ──────────────────────────────────
+function FeatureSection({
+  badge,
+  title,
+  description,
+  children,
+  reverse = false,
+}: {
+  badge: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  reverse?: boolean;
+}) {
+  return (
+    <section className="py-20 sm:py-28 px-6">
+      <div className={`max-w-6xl mx-auto flex flex-col ${reverse ? "lg:flex-row-reverse" : "lg:flex-row"} items-center gap-12 lg:gap-16`}>
+        {/* Text */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6 }}
+          className="flex-1 space-y-4 text-center lg:text-left"
+        >
+          <span className="inline-block font-mono text-[10px] tracking-[0.2em] uppercase text-primary border border-border rounded-full px-3 py-1 bg-card/30">
+            {badge}
+          </span>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-[1.1]">
+            {title}
+          </h2>
+          <p className="text-base text-muted-foreground max-w-md mx-auto lg:mx-0 font-serif leading-relaxed">
+            {description}
+          </p>
+        </motion.div>
 
-export default function HomePage() {
-  const [status, setStatus] = useState<UploadStatus>("idle");
-  const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<TranscriptionResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+        {/* Visual */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="flex-1 w-full"
+        >
+          {children}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
-  const handleFileSelect = useCallback(async (selectedFile: File) => {
-    setFile(selectedFile);
-    setError(null);
-    setResult(null);
-    setStatus("uploading");
-
-    try {
-      setStatus("transcribing");
-      const data = await transcribeAudio(selectedFile, (s) =>
-        setStatus(s as UploadStatus),
-      );
-      setResult(data);
-      setStatus("done");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setStatus("error");
-    }
-  }, []);
-
-  const handleClear = useCallback(() => {
-    setFile(null);
-    setResult(null);
-    setError(null);
-    setStatus("idle");
-  }, []);
-
-  const isProcessing = status === "uploading" || status === "transcribing";
+// ── Format Grid Visual ──────────────────────────────
+function FormatGrid() {
+  const formats = [
+    { ext: "WAV", color: "bg-primary/20 text-primary border-primary/30" },
+    { ext: "MP3", color: "bg-secondary/20 text-secondary border-secondary/30" },
+    { ext: "OGG", color: "bg-accent/30 text-accent-foreground border-accent/50" },
+    { ext: "FLAC", color: "bg-primary/20 text-primary border-primary/30" },
+    { ext: "WebM", color: "bg-secondary/20 text-secondary border-secondary/30" },
+    { ext: "MP4", color: "bg-accent/30 text-accent-foreground border-accent/50" },
+    { ext: "M4A", color: "bg-primary/20 text-primary border-primary/30" },
+    { ext: "AAC", color: "bg-secondary/20 text-secondary border-secondary/30" },
+    { ext: "OPUS", color: "bg-accent/30 text-accent-foreground border-accent/50" },
+    { ext: "AMR", color: "bg-primary/20 text-primary border-primary/30" },
+    { ext: "WMA", color: "bg-secondary/20 text-secondary border-secondary/30" },
+    { ext: "AIFF", color: "bg-accent/30 text-accent-foreground border-accent/50" },
+  ];
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      {/* ─── Header ─── */}
-      <header className="shrink-0 border-b bg-card/50 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <AudioWaveform className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                GeoGood
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                Audio Intel
-              </Badge>
-            </div>
-          </div>
+    <div className="rounded-xl border-2 border-border bg-card p-6 shadow-md">
+      <div className="grid grid-cols-4 gap-2">
+        {formats.map((f, i) => (
+          <motion.div
+            key={f.ext}
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.05, duration: 0.3 }}
+            className={`font-mono text-xs font-semibold text-center py-3 rounded-lg border-2 ${f.color} neo-card cursor-default`}
+          >
+            .{f.ext.toLowerCase()}
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-muted-foreground/50">50+ formats supported</span>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+          <span className="font-mono text-[10px] text-muted-foreground/50">auto-detect</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <StatusStepper status={status} />
+// ── Transcript Visual ──────────────────────────────
+function TranscriptVisual() {
+  const lines = [
+    { speaker: "A", time: "00:01", text: "Good morning, I'm calling about account ending 4782.", conf: 0.96 },
+    { speaker: "B", time: "00:05", text: "Of course, let me pull that up. Can you verify your date of birth?", conf: 0.94 },
+    { speaker: "A", time: "00:11", text: "January fifteenth, nineteen eighty-three.", conf: 0.98 },
+    { speaker: "B", time: "00:15", text: "Thank you. I see a balance of forty-two thousand three hundred.", conf: 0.91 },
+    { speaker: "A", time: "00:21", text: "I'd like to set up an EMI plan for that amount.", conf: 0.93 },
+  ];
 
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full transition-colors",
-                status === "done"
-                  ? "bg-green-500"
-                  : isProcessing
-                    ? "bg-primary animate-pulse"
-                    : "bg-muted-foreground/20",
-              )}
-            />
-            <span className="text-xs text-muted-foreground">
-              {status === "idle"
-                ? "Ready"
-                : status === "done"
-                  ? "Complete"
-                  : isProcessing
-                    ? "Processing"
-                    : "Error"}
+  return (
+    <div className="rounded-xl border-2 border-border bg-card overflow-hidden shadow-md">
+      <div className="h-8 flex items-center px-4 border-b border-border/30 bg-muted/20">
+        <span className="font-mono text-[9px] tracking-wider uppercase text-primary font-medium">live transcript</span>
+        <div className="ml-auto flex items-center gap-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+          <span className="font-mono text-[9px] text-muted-foreground/50">recording</span>
+        </div>
+      </div>
+      <div className="p-3 space-y-1">
+        {lines.map((line, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -10 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.12, duration: 0.4 }}
+            className="flex items-start gap-2 px-2 py-1.5 rounded group hover:bg-muted/20 transition-colors"
+          >
+            <span className={`font-mono text-[10px] font-bold shrink-0 pt-0.5 ${line.speaker === "A" ? "text-primary" : "text-secondary"}`}>
+              {line.speaker}
             </span>
+            <span className="font-mono text-[9px] text-muted-foreground/40 tabular-nums pt-0.5 shrink-0">
+              {line.time}
+            </span>
+            <span className="text-[12px] leading-[1.5] text-card-foreground/75 font-serif flex-1">
+              {line.text}
+            </span>
+            <div className="shrink-0 pt-1 flex items-center gap-1">
+              <div className="w-7 h-[3px] rounded-full bg-border/30 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-secondary"
+                  style={{ width: `${line.conf * 100}%` }}
+                />
+              </div>
+              <span className="font-mono text-[8px] text-muted-foreground/30">{(line.conf * 100).toFixed(0)}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      {/* Typing indicator */}
+      <div className="px-5 pb-3 flex items-center gap-1">
+        <span className="font-mono text-[10px] text-muted-foreground/30">▎</span>
+        <span className="w-[2px] h-3 bg-primary/50 animate-cursor-blink" />
+      </div>
+    </div>
+  );
+}
+
+// ── Intelligence Visual ──────────────────────────────
+function IntelligenceVisual() {
+  const extractions = [
+    { label: "intent", value: "emi_setup_request", color: "text-primary" },
+    { label: "amount", value: "₹42,300", color: "text-secondary" },
+    { label: "account", value: "****4782", color: "text-accent-foreground" },
+    { label: "dob", value: "1983-01-15", color: "text-secondary" },
+  ];
+
+  return (
+    <div className="rounded-xl border-2 border-border bg-card overflow-hidden shadow-md">
+      <div className="h-8 flex items-center px-4 border-b border-border/30 bg-muted/20">
+        <span className="font-mono text-[9px] tracking-wider uppercase text-primary font-medium">extracted intelligence</span>
+      </div>
+      <div className="p-4 space-y-4">
+        {/* Extraction cards */}
+        <div className="grid grid-cols-2 gap-2">
+          {extractions.map((ext, i) => (
+            <motion.div
+              key={ext.label}
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1, duration: 0.3 }}
+              className="border-2 border-border rounded-lg p-3 bg-background/50 neo-card"
+            >
+              <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-muted-foreground/40 block">{ext.label}</span>
+              <span className={`font-mono text-sm font-semibold ${ext.color} mt-1 block`}>{ext.value}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Obligation */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.5 }}
+          className="border-2 border-border rounded-lg p-3 bg-background/50"
+        >
+          <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-muted-foreground/40 block mb-1">detected obligation</span>
+          <p className="text-[12px] leading-[1.5] text-card-foreground/70 font-serif italic border-l-2 border-primary/40 pl-2">
+            &ldquo;Customer requests EMI plan setup for outstanding balance of ₹42,300 on account ending 4782&rdquo;
+          </p>
+        </motion.div>
+
+        {/* Confidence strip */}
+        <div className="flex items-center justify-between pt-1">
+          <span className="font-mono text-[9px] text-muted-foreground/40">overall confidence</span>
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 rounded-full bg-border/40 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                whileInView={{ width: "94%" }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.6, duration: 0.8 }}
+                className="h-full rounded-full bg-secondary"
+              />
+            </div>
+            <span className="font-mono text-[10px] text-secondary font-medium">94%</span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Stats Strip ──────────────────────────────────────
+function StatsStrip() {
+  const stats = [
+    { value: "50+", label: "Audio Formats" },
+    { value: "<2s", label: "Processing" },
+    { value: "12", label: "Languages" },
+    { value: "99.1%", label: "Accuracy" },
+  ];
+
+  return (
+    <section className="py-16 px-6 border-y border-border bg-card/30">
+      <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
+        {stats.map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1, duration: 0.4 }}
+            className="text-center"
+          >
+            <p className="text-3xl sm:text-4xl font-bold text-primary font-mono">{stat.value}</p>
+            <p className="text-xs text-muted-foreground/60 font-mono tracking-wider uppercase mt-1">{stat.label}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// ──  LANDING PAGE                                    ──
+// ═══════════════════════════════════════════════════════
+export default function LandingPage() {
+  return (
+    <div className="flex flex-col min-h-dvh bg-background">
+      {/* ─── Sticky Header ─── */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+          <a href="/" className="text-lg font-bold tracking-tight text-foreground">
+            Delrey
+          </a>
+
+          <nav className="hidden sm:flex items-center gap-6">
+            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Features
+            </a>
+            <a href="/app" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Platform
+            </a>
+          </nav>
+
+          <a
+            href="/app"
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-sm"
+          >
+            Launch App
+          </a>
         </div>
       </header>
 
-      {/* ─── Main Content ─── */}
-      <main className="flex-1 overflow-hidden">
-        <AnimatePresence mode="wait">
-          {/* ═══════════ UPLOAD STATE ═══════════ */}
-          {!result && status !== "error" && (
-            <motion.div
-              key="upload"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4 }}
-              className="flex h-full flex-col items-center justify-center px-6"
+      {/* ─── Hero ─── */}
+      <LandingHero />
+
+      {/* ─── Stats ─── */}
+      <StatsStrip />
+
+      {/* ─── Feature: Ingest ─── */}
+      <div id="features">
+        <FeatureSection
+          badge="01 · Ingest"
+          title="Accept any audio format"
+          description="Drop WAV, MP3, OGG, FLAC, WebM, or any of 50+ audio and video formats. Automatic codec detection, noise profiling, and call quality scoring."
+        >
+          <FormatGrid />
+        </FeatureSection>
+      </div>
+
+      {/* Divider */}
+      <div className="max-w-6xl mx-auto w-full border-t border-border/40" />
+
+      {/* ─── Feature: Transcribe ─── */}
+      <FeatureSection
+        badge="02 · Transcribe"
+        title="Fintech-aware transcription"
+        description="Domain-vocabulary-injected ASR tuned for financial terms, amounts, dates, and account numbers. Per-word confidence scoring with speaker diarization."
+        reverse
+      >
+        <TranscriptVisual />
+      </FeatureSection>
+
+      {/* Divider */}
+      <div className="max-w-6xl mx-auto w-full border-t border-border/40" />
+
+      {/* ─── Feature: Understand ─── */}
+      <FeatureSection
+        badge="03 · Understand"
+        title="Extract intelligence from every call"
+        description="Automatically classify intents, extract financial entities, detect obligations and commitments, and flag regulatory-sensitive language."
+      >
+        <IntelligenceVisual />
+      </FeatureSection>
+
+      {/* ─── Bottom CTA ─── */}
+      <section className="py-24 px-6 border-t border-border">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="max-w-2xl mx-auto text-center space-y-6"
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+            Ready to understand your audio?
+          </h2>
+          <p className="text-muted-foreground font-serif max-w-md mx-auto">
+            Try the platform now. No sign-up required.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <a
+              href="/app"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all shadow-md neo-card"
             >
-              <div className="w-full max-w-lg space-y-8">
-                {/* Hero text */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.6,
-                    delay: 0.1,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  className="text-center space-y-3"
-                >
-                  <Waveform
-                    bars={40}
-                    className="h-5 mx-auto mb-4 opacity-40"
-                    active={isProcessing}
-                  />
-                  <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl text-balance">
-                    Audio Intelligence
-                  </h1>
-                  <p className="text-sm leading-relaxed text-muted-foreground max-w-sm mx-auto text-balance">
-                    Upload a recording to get time-aligned transcription with
-                    structured entity extraction and intent classification.
-                  </p>
-                </motion.div>
-
-                {/* Upload zone */}
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.6,
-                    delay: 0.3,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                >
-                  <UploadZone
-                    onFileSelect={handleFileSelect}
-                    status={status}
-                    currentFile={file}
-                    onClear={handleClear}
-                  />
-                </motion.div>
-
-                {/* Processing animation */}
-                <AnimatePresence>
-                  {isProcessing && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col items-center gap-3"
-                    >
-                      <Waveform bars={20} className="h-4" active />
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {status === "uploading"
-                          ? "Uploading audio…"
-                          : "Running ASR pipeline…"}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Feature pills */}
-                {!isProcessing && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.6 }}
-                    className="grid grid-cols-3 gap-3"
-                  >
-                    {features.map((feat, i) => {
-                      const Icon = feat.icon;
-                      return (
-                        <motion.div
-                          key={feat.title}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.7 + i * 0.1 }}
-                        >
-                          <Card className="p-3 text-center space-y-2 hover:bg-muted/50 transition-colors">
-                            <Icon className="h-4 w-4 text-primary mx-auto" />
-                            <p className="text-xs font-medium text-foreground">
-                              {feat.title}
-                            </p>
-                            <p className="text-[10px] leading-relaxed text-muted-foreground">
-                              {feat.desc}
-                            </p>
-                          </Card>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* ═══════════ ERROR STATE ═══════════ */}
-          {status === "error" && (
-            <motion.div
-              key="error"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex h-full flex-col items-center justify-center gap-6 px-6"
+              Launch Platform
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+            <a
+              href="/get-started"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-lg border-2 border-border text-foreground text-sm font-medium hover:bg-card/50 transition-colors"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-destructive/10 ring-1 ring-destructive/20">
-                <AlertCircle className="h-6 w-6 text-destructive" />
-              </div>
-              <div className="text-center space-y-1.5">
-                <p className="text-base font-semibold text-foreground">
-                  Transcription Failed
-                </p>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  {error}
-                </p>
-              </div>
-              <Button variant="outline" onClick={handleClear}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Try again
-              </Button>
-            </motion.div>
-          )}
+              Documentation
+            </a>
+          </div>
+        </motion.div>
+      </section>
 
-          {/* ═══════════ RESULTS STATE ═══════════ */}
-          {result && status === "done" && (
-            <motion.div
-              key="results"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-              className="flex h-full flex-col overflow-hidden"
-            >
-              {/* Results sub-header */}
-              <div className="shrink-0 border-b bg-card/30">
-                <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClear}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                  <Separator orientation="vertical" className="h-5" />
-                  <ResultHeader
-                    recordingId={result.recording_id}
-                    duration={result.duration_s}
-                    language={result.language}
-                    segmentCount={result.segments.length}
-                  />
-                </div>
-              </div>
-
-              {/* Tabbed content */}
-              <div className="flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-6xl px-6 py-6">
-                  <Tabs defaultValue="transcript">
-                    <TabsList>
-                      <TabsTrigger value="transcript" className="gap-1.5">
-                        <FileAudio className="h-3.5 w-3.5" />
-                        Transcript
-                      </TabsTrigger>
-                      <TabsTrigger value="insights" className="gap-1.5">
-                        <Lightbulb className="h-3.5 w-3.5" />
-                        Insights
-                      </TabsTrigger>
-                      <TabsTrigger value="json" className="gap-1.5">
-                        <Braces className="h-3.5 w-3.5" />
-                        Raw JSON
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="transcript" className="mt-6">
-                      <TranscriptViewer segments={result.segments} />
-                    </TabsContent>
-
-                    <TabsContent value="insights" className="mt-6">
-                      <InsightsPanel insights={result.insights} />
-                    </TabsContent>
-
-                    <TabsContent value="json" className="mt-6">
-                      <JsonViewer data={result} title="Full Response" />
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+      {/* ─── Footer ─── */}
+      <footer className="border-t border-border py-8 px-6 bg-card/20">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground/50">
+            <span className="font-semibold text-foreground/60">Delrey</span>
+            <span className="font-mono tracking-widest uppercase text-[10px]">
+              Audio Intelligence
+            </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="#" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Privacy
+            </a>
+            <a href="#" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Terms
+            </a>
+            <a href="#" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+              Security
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
