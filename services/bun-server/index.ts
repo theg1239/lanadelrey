@@ -3,11 +3,23 @@ import { generateText, Output } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
-const PYTHON_ASR_URL = process.env.PYTHON_ASR_URL || "http://localhost:8000/asr";
+const PYTHON_ASR_URL = (() => {
+  const raw = process.env.PYTHON_ASR_URL || "http://localhost:8000/asr";
+  try {
+    const url = new URL(raw);
+    if (url.pathname === "/" || url.pathname === "") {
+      url.pathname = "/asr";
+      return url.toString();
+    }
+    return raw;
+  } catch {
+    return raw;
+  }
+})();
 const PORT = Number(process.env.PORT || 3000);
 
 const indexPath = new URL("../../apps/web/index.html", import.meta.url);
-const dbPath = new URL("./data/app.db", import.meta.url);
+const dbPath = new URL("./data/app.db", import.meta.url).pathname;
 
 const db = new Database(dbPath);
 
@@ -40,10 +52,16 @@ db.exec(`
   );
 `);
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status = 200, req?: Request) {
+  const origin = req?.headers.get("origin") || "*";
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "access-control-allow-origin": origin,
+      "access-control-allow-headers": "content-type, authorization",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+    },
   });
 }
 
@@ -74,7 +92,7 @@ async function buildInsights(transcript: string) {
     };
   }
 
-  const modelName = process.env.LLM_MODEL || "gpt-4o-mini";
+  const modelName = process.env.LLM_MODEL || "gpt-5.2";
   const prompt = [
     "You are extracting structured insights from a financial call transcript.",
     "Return only the structured fields; do not invent facts.",
@@ -142,8 +160,12 @@ Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
+    if (req.method === "OPTIONS") {
+      return jsonResponse({ ok: true }, 200, req);
+    }
+
     if (url.pathname === "/health") {
-      return jsonResponse({ status: "ok" });
+      return jsonResponse({ status: "ok" }, 200, req);
     }
 
     if (url.pathname === "/" && req.method === "GET") {
@@ -154,7 +176,7 @@ Bun.serve({
 
     if (url.pathname === "/v1/recordings" && req.method === "GET") {
       const rows = db.query("SELECT * FROM recordings ORDER BY created_at DESC").all();
-      return jsonResponse({ recordings: rows });
+      return jsonResponse({ recordings: rows }, 200, req);
     }
 
     if (url.pathname.startsWith("/v1/recordings/") && req.method === "GET") {
@@ -165,12 +187,12 @@ Bun.serve({
         const segments = db
           .query("SELECT start_ms, end_ms, text, confidence FROM segments WHERE recording_id = ? ORDER BY idx ASC")
           .all(id);
-        return jsonResponse({ recording_id: id, segments });
+        return jsonResponse({ recording_id: id, segments }, 200, req);
       }
 
       if (url.pathname.endsWith("/insights")) {
         const row = db.query("SELECT * FROM insights WHERE recording_id = ?").get(id);
-        if (!row) return jsonResponse({ error: "Not found" }, 404);
+        if (!row) return jsonResponse({ error: "Not found" }, 404, req);
         return jsonResponse({
           recording_id: id,
           summary: row.summary,
@@ -179,12 +201,12 @@ Bun.serve({
           obligations: row.obligations_json ? JSON.parse(row.obligations_json) : [],
           regulatory_phrases: row.regulatory_json ? JSON.parse(row.regulatory_json) : [],
           ui: row.ui_json ? JSON.parse(row.ui_json) : null,
-        });
+        }, 200, req);
       }
 
       const recording = db.query("SELECT * FROM recordings WHERE id = ?").get(id);
-      if (!recording) return jsonResponse({ error: "Not found" }, 404);
-      return jsonResponse({ recording });
+      if (!recording) return jsonResponse({ error: "Not found" }, 404, req);
+      return jsonResponse({ recording }, 200, req);
     }
 
     if (url.pathname === "/v1/transcribe" && req.method === "POST") {
@@ -192,7 +214,7 @@ Bun.serve({
       const file = form.get("audio");
 
       if (!(file instanceof File)) {
-        return jsonResponse({ error: "Missing audio file" }, 400);
+        return jsonResponse({ error: "Missing audio file" }, 400, req);
       }
 
       const forward = new FormData();
@@ -205,7 +227,7 @@ Bun.serve({
 
       if (!asrRes.ok) {
         const errText = await asrRes.text();
-        return jsonResponse({ error: "ASR failed", detail: errText }, 502);
+        return jsonResponse({ error: "ASR failed", detail: errText }, 502, req);
       }
 
       const asr = await asrRes.json();
@@ -249,10 +271,10 @@ Bun.serve({
         segments,
         insights,
         ui,
-      });
+      }, 200, req);
     }
 
-    return jsonResponse({ error: "Not found" }, 404);
+    return jsonResponse({ error: "Not found" }, 404, req);
   },
 });
 

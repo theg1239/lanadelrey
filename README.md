@@ -9,6 +9,11 @@ Single web interface for audio upload, transcribed by Whisper, orchestrated by a
 - `docs/SYSTEM_DESIGN.md` — system design
 
 ## Quick Start
+### Runpod setup
+```bash
+./scripts/setup_runpod.sh
+```
+
 ### 1) Python Whisper service
 ```bash
 cd services/python-whisper

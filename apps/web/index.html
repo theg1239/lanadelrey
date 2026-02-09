@@ -103,7 +103,7 @@
     }
 
     async function loadRecordings() {
-      const res = await fetch('/v1/recordings');
+      const res = await fetch(`${API_BASE}/v1/recordings`);
       const data = await res.json();
       const items = data.recordings || [];
       recordingsEl.innerHTML = '';
@@ -126,8 +126,8 @@
           if (!id) return;
           statusEl.textContent = 'Loading...';
           const [tRes, iRes] = await Promise.all([
-            fetch(`/v1/recordings/${id}/transcript`),
-            fetch(`/v1/recordings/${id}/insights`),
+            fetch(`${API_BASE}/v1/recordings/${id}/transcript`),
+            fetch(`${API_BASE}/v1/recordings/${id}/insights`),
           ]);
           const tData = await tRes.json();
           const iData = await iRes.json();
@@ -137,6 +137,11 @@
           statusEl.textContent = 'Loaded';
         });
       });
+    }
+
+    const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : location.origin;
+    if (location.protocol === 'file:') {
+      statusEl.textContent = 'Open http://localhost:3000 to use the server API.';
     }
 
     submitBtn.addEventListener('click', async () => {
@@ -151,7 +156,7 @@
       form.append('audio', file);
 
       try {
-        const res = await fetch('/v1/transcribe', { method: 'POST', body: form });
+        const res = await fetch(`${API_BASE}/v1/transcribe`, { method: 'POST', body: form });
         const data = await res.json();
         outputEl.textContent = JSON.stringify(data, null, 2);
         renderTranscript(data.segments || []);
@@ -163,7 +168,13 @@
       }
     });
 
-    loadRecordings().catch(() => {});
+    async function safeLoad() {
+      try {
+        await loadRecordings();
+      } catch {}
+    }
+
+    safeLoad();
   </script>
 </body>
 </html>
