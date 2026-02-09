@@ -14,23 +14,27 @@ Single web interface for audio upload, transcribed by Whisper, orchestrated by a
 ./scripts/setup_runpod.sh
 ```
 
-### 1) Python Whisper service
-```bash
-cd services/python-whisper
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000
-```
-
-### 2) Bun server
+### 1) Bun server (OpenAI)
 ```bash
 cd services/bun-server
 bun install
+OPENAI_API_KEY="your_key" \\
+ASR_MODEL="whisper-1" \\
 bun run dev
 ```
 
-### 3) Open UI
+### 1b) Bun server (Runpod)
+```bash
+cd services/bun-server
+bun install
+ASR_PROVIDER="runpod" \\
+ASR_BASE_URL="https://<POD>-8000.proxy.runpod.net/v1" \\
+ASR_API_KEY="EMPTY" \\
+ASR_MODEL="Systran/faster-whisper-large-v3" \\
+bun run dev
+```
+
+### 2) Open UI
 - Visit `http://localhost:3000`
 - Upload an audio file
 
@@ -39,7 +43,6 @@ bun run dev
 - `GET /health`
 
 ## Notes
-- Bun server forwards uploads to the FastAPI Whisper service.
-- Whisper runs on GPU when available.
-- Set `OPENAI_API_KEY` to enable AI insights (intent/entities/obligations).
+- Bun server can use OpenAI or Runpod (OpenAI-compatible) transcription based on `ASR_PROVIDER`.
+- `OPENAI_API_KEY` is required for OpenAI transcription and enables AI insights.
 - Override `LLM_MODEL` if you want a different OpenAI model.

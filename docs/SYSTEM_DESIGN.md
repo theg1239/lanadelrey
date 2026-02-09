@@ -32,8 +32,8 @@ Build a single web interface that accepts an audio file upload, routes it throug
         |
         | HTTP
         v
-[Python Whisper Service (GPU)]
-  - Whisper ASR
+[OpenAI Transcription API]
+  - Official transcription endpoint (/v1/audio/transcriptions)
   - Time-aligned segments
 
 [Storage]
@@ -56,7 +56,7 @@ Web UI -> Bun /v1/transcribe -> Python Whisper -> transcript JSON
 1. Web UI uploads a file.
 2. Bun stores raw file (object store or local path).
 3. Bun sends file bytes or signed URL to Python Whisper service.
-4. Python returns time-aligned segments + confidence.
+4. OpenAI transcription API returns time-aligned segments + confidence.
 5. Bun persists and returns JSON to the client.
 
 ---
@@ -88,21 +88,8 @@ Web UI -> Bun /v1/transcribe -> Python Whisper -> transcript JSON
 
 ---
 
-## Python Whisper Service
-### POST /asr
-**Input:** audio file bytes or file URL.
-**Output:** time-aligned transcript segments with confidence.
-
-Minimal response shape:
-```json
-{
-  "language": "en",
-  "duration_s": 321.4,
-  "segments": [
-    {"start_ms": 0, "end_ms": 1280, "text": "...", "confidence": 0.91}
-  ]
-}
-```
+## OpenAI Transcription Endpoint
+Use the official transcription endpoint:\n`POST /v1/audio/transcriptions`\n\nThe Bun server calls this via AI SDK `experimental_transcribe` with the official OpenAI provider.
 
 ---
 

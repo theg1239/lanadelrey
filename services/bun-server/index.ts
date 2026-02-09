@@ -1,22 +1,56 @@
 import { Database } from "bun:sqlite";
-import { generateText, Output } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { experimental_transcribe as transcribe, generateText, Output } from "ai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
-const PYTHON_ASR_URL = (() => {
-  const raw = process.env.PYTHON_ASR_URL || "http://localhost:8000/asr";
+const ASR_PROVIDER =
+  Bun.env.ASR_PROVIDER ||
+  (Bun.env.ASR_BASE_URL || Bun.env.PYTHON_ASR_URL ? "runpod" : "openai");
+
+const rawBaseUrl = Bun.env.ASR_BASE_URL || Bun.env.PYTHON_ASR_URL || "";
+const ASR_BASE_URL = rawBaseUrl
+  ? rawBaseUrl.endsWith("/v1")
+    ? rawBaseUrl
+    : rawBaseUrl.replace(/\/+$/, "") + "/v1"
+  : "";
+
+const ASR_API_KEY = Bun.env.ASR_API_KEY || Bun.env.OPENAI_API_KEY || "EMPTY";
+const ASR_MODEL =
+  Bun.env.ASR_MODEL ||
+  (ASR_PROVIDER === "runpod" ? "Systran/faster-whisper-large-v3" : "whisper-1");
+const ASR_LANGUAGE = Bun.env.ASR_LANGUAGE || "";
+
+const asrProvider =
+  ASR_PROVIDER === "runpod" && ASR_BASE_URL
+    ? createOpenAI({
+        baseURL: ASR_BASE_URL,
+        apiKey: ASR_API_KEY,
+        name: "runpod",
+      })
+    : openai;
+
+const OPENAI_TRANSCRIPTION_MODELS = [
+  { id: "whisper-1" },
+  { id: "gpt-4o-mini-transcribe" },
+  { id: "gpt-4o-transcribe" },
+  { id: "gpt-4o-transcribe-diarize" },
+];
+
+async function fetchRunpodModels(): Promise<Array<{ id: string }>> {
+  if (!ASR_BASE_URL) return [];
   try {
-    const url = new URL(raw);
-    if (url.pathname === "/" || url.pathname === "") {
-      url.pathname = "/asr";
-      return url.toString();
-    }
-    return raw;
+    const res = await fetch(`${ASR_BASE_URL}/models`, {
+      headers: { Authorization: `Bearer ${ASR_API_KEY}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models = Array.isArray(data?.data) ? (data.data as Array<{ id?: string }>) : [];
+    return models.filter((m) => typeof m.id === "string").map((m) => ({ id: m.id as string }));
   } catch {
-    return raw;
+    return [];
   }
-})();
-const PORT = Number(process.env.PORT || 3000);
+}
+const PORT = Number(Bun.env.PORT || 3000);
 
 const indexPath = new URL("../../apps/web/index.html", import.meta.url);
 const dbPath = new URL("./data/app.db", import.meta.url).pathname;
@@ -81,7 +115,7 @@ const insightSchema = z.object({
 });
 
 async function buildInsights(transcript: string) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = Bun.env.OPENAI_API_KEY;
   if (!apiKey) {
     return {
       summary: transcript.slice(0, 240) + (transcript.length > 240 ? "..." : ""),
@@ -92,7 +126,7 @@ async function buildInsights(transcript: string) {
     };
   }
 
-  const modelName = process.env.LLM_MODEL || "gpt-5.2";
+  const modelName = Bun.env.LLM_MODEL || "gpt-5.2";
   const prompt = [
     "You are extracting structured insights from a financial call transcript.",
     "Return only the structured fields; do not invent facts.",
@@ -157,7 +191,7 @@ function buildUiSchema(
 
 Bun.serve({
   port: PORT,
-  async fetch(req) {
+  async fetch(req: Request) {
     const url = new URL(req.url);
 
     if (req.method === "OPTIONS") {
@@ -177,6 +211,14 @@ Bun.serve({
     if (url.pathname === "/v1/recordings" && req.method === "GET") {
       const rows = db.query("SELECT * FROM recordings ORDER BY created_at DESC").all();
       return jsonResponse({ recordings: rows }, 200, req);
+    }
+
+    if (url.pathname === "/v1/models" && req.method === "GET") {
+      if (ASR_PROVIDER === "runpod") {
+        const models = await fetchRunpodModels();
+        return jsonResponse({ models }, 200, req);
+      }
+      return jsonResponse({ models: OPENAI_TRANSCRIPTION_MODELS }, 200, req);
     }
 
     if (url.pathname.startsWith("/v1/recordings/") && req.method === "GET") {
@@ -212,25 +254,46 @@ Bun.serve({
     if (url.pathname === "/v1/transcribe" && req.method === "POST") {
       const form = await req.formData();
       const file = form.get("audio");
+      const requestedModel = form.get("model");
 
       if (!(file instanceof File)) {
         return jsonResponse({ error: "Missing audio file" }, 400, req);
       }
 
-      const forward = new FormData();
-      forward.append("audio", file, file.name || "audio.wav");
+      let transcript;
+      const audioBytes = new Uint8Array(await file.arrayBuffer());
+      const runTranscribe = async (modelId: string) =>
+        transcribe({
+          model: asrProvider.transcription(modelId),
+          audio: audioBytes,
+          providerOptions: {
+            openai: {
+              ...(ASR_LANGUAGE ? { language: ASR_LANGUAGE } : {}),
+              timestampGranularities: ["segment"],
+            },
+          },
+        });
 
-      const asrRes = await fetch(PYTHON_ASR_URL, {
-        method: "POST",
-        body: forward,
-      });
-
-      if (!asrRes.ok) {
-        const errText = await asrRes.text();
-        return jsonResponse({ error: "ASR failed", detail: errText }, 502, req);
+      try {
+        const modelId =
+          (typeof requestedModel === "string" && requestedModel.trim()) || ASR_MODEL;
+        transcript = await runTranscribe(modelId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return jsonResponse({ error: "ASR failed", detail: message }, 502, req);
       }
 
-      const asr = await asrRes.json();
+      const asr = {
+        language: transcript.language || null,
+        duration_s: transcript.durationInSeconds || null,
+        segments: (transcript.segments || []).map((s) => ({
+          start_ms: Math.round(s.startSecond * 1000),
+          end_ms: Math.round(s.endSecond * 1000),
+          text: s.text,
+          confidence: null,
+        })),
+        text: transcript.text || "",
+      };
       const recordingId = crypto.randomUUID();
       const createdAt = new Date().toISOString();
 
@@ -242,15 +305,28 @@ Bun.serve({
         "INSERT INTO segments (recording_id, idx, start_ms, end_ms, text, confidence) VALUES (?, ?, ?, ?, ?, ?)"
       );
 
-      const segments = Array.isArray(asr.segments) ? asr.segments : [];
+      let segments = Array.isArray(asr.segments) ? asr.segments : [];
+      if (segments.length === 0 && asr.text) {
+        segments = [
+          {
+            start_ms: 0,
+            end_ms: Math.round((asr.duration_s || 0) * 1000),
+            text: asr.text,
+            confidence: null,
+          },
+        ];
+      }
       for (let i = 0; i < segments.length; i++) {
         const s = segments[i];
         insertSeg.run(recordingId, i, s.start_ms, s.end_ms, s.text, s.confidence ?? null);
       }
 
-      const transcript = segments.map((s: { text?: string }) => s.text || "").join(" ").trim();
-      const insights = await buildInsights(transcript);
-      const ui = buildUiSchema(transcript, segments, insights);
+      const transcriptText =
+        segments.length > 0
+          ? segments.map((s: { text?: string }) => s.text || "").join(" ").trim()
+          : (asr.text || "").trim();
+      const insights = await buildInsights(transcriptText);
+      const ui = buildUiSchema(transcriptText, segments, insights);
 
       db.query(
         "INSERT OR REPLACE INTO insights (recording_id, summary, intent, entities_json, obligations_json, regulatory_json, ui_json) VALUES (?, ?, ?, ?, ?, ?, ?)"
