@@ -7,10 +7,51 @@ log() { echo "[setup] $*"; }
 
 log "Updating apt and installing system deps (ffmpeg)..."
 if command -v apt-get >/dev/null 2>&1; then
-  sudo apt-get update -y
-  sudo apt-get install -y ffmpeg
+  if command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update -y
+    sudo apt-get install -y ffmpeg || true
+  else
+    if [ "$(id -u)" -eq 0 ]; then
+      apt-get update -y
+      apt-get install -y ffmpeg || true
+    else
+      log "sudo not available and not running as root. Please install ffmpeg manually."
+    fi
+  fi
 else
   log "apt-get not found. Please install ffmpeg manually."
+fi
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+  log "ffmpeg not available via apt. Falling back to static build..."
+  TMP_DIR="$(mktemp -d)"
+  FF_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+  if command -v curl >/dev/null 2>&1; then
+    curl -L "$FF_URL" -o "$TMP_DIR/ffmpeg.tar.xz"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$TMP_DIR/ffmpeg.tar.xz" "$FF_URL"
+  else
+    log "Neither curl nor wget found. Please install ffmpeg manually."
+    exit 1
+  fi
+
+  tar -xf "$TMP_DIR/ffmpeg.tar.xz" -C "$TMP_DIR"
+  FF_DIR="$(find "$TMP_DIR" -maxdepth 1 -type d -name 'ffmpeg-*' | head -n 1)"
+  if [ -z "$FF_DIR" ]; then
+    log "Failed to unpack ffmpeg."
+    exit 1
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    install -m 0755 "$FF_DIR/ffmpeg" /usr/local/bin/ffmpeg
+    install -m 0755 "$FF_DIR/ffprobe" /usr/local/bin/ffprobe
+    log "Installed ffmpeg to /usr/local/bin"
+  else
+    mkdir -p "$HOME/.local/bin"
+    install -m 0755 "$FF_DIR/ffmpeg" "$HOME/.local/bin/ffmpeg"
+    install -m 0755 "$FF_DIR/ffprobe" "$HOME/.local/bin/ffprobe"
+    log "Installed ffmpeg to $HOME/.local/bin (ensure it's in PATH)"
+  fi
 fi
 
 log "Setting up Python venv and installing Whisper service deps..."
