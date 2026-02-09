@@ -6,7 +6,6 @@ import { Upload, FileAudio, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { cn, formatFileSize } from "@/lib/utils";
 import type { UploadStatus } from "@/lib/types";
 
@@ -67,12 +66,11 @@ export function UploadZone({
       onDrop={handleDrop}
       onClick={() => !isProcessing && inputRef.current?.click()}
       className={cn(
-        "relative cursor-pointer border-2 border-dashed transition-all duration-300",
-        "flex flex-col items-center justify-center gap-5 p-14",
-        "bg-card/40 backdrop-blur-sm hover:bg-card/60",
-        isDragging && "border-primary bg-primary/[0.04] scale-[1.01]",
-        !isDragging && "border-border/60",
-        isProcessing && "pointer-events-none",
+        "relative cursor-pointer border-dashed transition-all duration-300",
+        "flex flex-col items-center justify-center gap-5 p-10",
+        isDragging && "border-primary bg-primary/5 scale-[1.01]",
+        !isDragging && "hover:border-muted-foreground/30 hover:bg-muted/50",
+        isProcessing && "pointer-events-none opacity-70",
       )}
     >
       <input
@@ -86,15 +84,15 @@ export function UploadZone({
       <AnimatePresence mode="wait">
         {currentFile ? (
           <motion.div
-            key="file-info"
+            key="file"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="flex flex-col items-center gap-4"
           >
             <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/60 ring-1 ring-accent-foreground/10">
-                <FileAudio className="h-7 w-7 text-accent-foreground" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                <FileAudio className="h-6 w-6 text-primary" />
               </div>
               {!isProcessing && status !== "done" && (
                 <button
@@ -102,17 +100,18 @@ export function UploadZone({
                     e.stopPropagation();
                     onClear();
                   }}
-                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-colors"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-card-foreground">
+
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium text-foreground">
                 {currentFile.name}
               </p>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">
+              <p className="font-mono text-xs text-muted-foreground">
                 {formatFileSize(currentFile.size)}
               </p>
             </div>
@@ -121,45 +120,40 @@ export function UploadZone({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="w-full max-w-[200px] space-y-2"
+                className="flex items-center gap-2"
               >
-                <Progress value={status === "uploading" ? 30 : 65} className="h-1" />
-                <div className="flex items-center justify-center gap-1.5">
-                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                    {status === "uploading" ? "Uploading" : "Transcribing"}
-                  </span>
-                </div>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {status === "uploading"
+                    ? "Uploading…"
+                    : "Processing audio…"}
+                </span>
               </motion.div>
             )}
           </motion.div>
         ) : (
           <motion.div
-            key="upload-prompt"
+            key="empty"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="flex flex-col items-center gap-4"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-secondary/50">
-              <Upload className="h-7 w-7 text-muted-foreground" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted ring-1 ring-border">
+              <Upload className="h-6 w-6 text-muted-foreground" />
             </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-card-foreground">
+            <div className="text-center space-y-1.5">
+              <p className="text-sm font-medium text-foreground">
                 Drop your audio file here
               </p>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 or click to browse
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {["WAV", "MP3", "OGG", "FLAC", "WebM"].map((fmt) => (
-                <Badge
-                  key={fmt}
-                  variant="outline"
-                  className="font-mono text-[10px] tracking-wider text-muted-foreground/60"
-                >
-                  {fmt}
+            <div className="flex gap-1.5">
+              {["WAV", "MP3", "OGG", "FLAC", "WebM"].map((f) => (
+                <Badge key={f} variant="secondary" className="text-[10px] font-mono px-1.5 py-0">
+                  {f}
                 </Badge>
               ))}
             </div>

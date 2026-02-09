@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
-import { DM_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
+import { Inter, Source_Serif_4, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
 });
 
-const lora = Lora({
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-serif",
   display: "swap",
   weight: ["400", "500", "600", "700"],
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
   display: "swap",
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${dmSans.variable} ${lora.variable} ${ibmPlexMono.variable} font-sans antialiased grain-overlay`}
+        className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} font-sans antialiased grain-overlay`}
       >
         {children}
       </body>

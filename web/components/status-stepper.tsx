@@ -27,7 +27,7 @@ export function StatusStepper({ status }: StatusStepperProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-1.5"
     >
@@ -40,12 +40,12 @@ export function StatusStepper({ status }: StatusStepperProps) {
             {i > 0 && (
               <div
                 className={cn(
-                  "h-px w-6 transition-colors duration-500",
+                  "h-px w-5 transition-colors duration-500",
                   isDone ? "bg-primary" : "bg-border",
                 )}
               />
             )}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <div
                 className={cn(
                   "h-1.5 w-1.5 rounded-full transition-all duration-500",
@@ -56,7 +56,7 @@ export function StatusStepper({ status }: StatusStepperProps) {
               />
               <span
                 className={cn(
-                  "font-mono text-[10px] tracking-wider uppercase transition-colors duration-500",
+                  "text-[11px] font-medium tracking-wide transition-colors duration-300",
                   isActive && "text-primary",
                   isDone && "text-foreground",
                   !isDone && !isActive && "text-muted-foreground/50",

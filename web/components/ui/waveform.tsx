@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 interface WaveformProps {
   bars?: number;
@@ -8,25 +9,31 @@ interface WaveformProps {
   active?: boolean;
 }
 
-export function Waveform({ bars = 24, className, active = true }: WaveformProps) {
+export function Waveform({
+  bars = 24,
+  className,
+  active = true,
+}: WaveformProps) {
+  const heights = useMemo(
+    () => Array.from({ length: bars }, () => 6 + Math.random() * 18),
+    [bars],
+  );
+
   return (
     <div
-      className={cn(
-        "flex items-end justify-center gap-[2px]",
-        className,
-      )}
+      className={cn("flex items-end justify-center gap-[2px]", className)}
       aria-hidden
     >
-      {Array.from({ length: bars }).map((_, i) => (
+      {heights.map((h, i) => (
         <div
           key={i}
           className={cn(
-            "w-[3px] rounded-full bg-primary/60 waveform-bar",
-            !active && "!animate-none opacity-30",
+            "w-[2px] rounded-full bg-primary/50 waveform-bar",
+            !active && "!animate-none opacity-15",
           )}
           style={{
-            height: `${12 + Math.random() * 20}px`,
-            animationDelay: `${i * 0.05}s`,
+            height: `${h}px`,
+            animationDelay: `${i * 0.04}s`,
           }}
         />
       ))}

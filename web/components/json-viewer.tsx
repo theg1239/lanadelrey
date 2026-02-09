@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
-import { Copy, Check, Code2 } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -31,50 +29,47 @@ export function JsonViewer({ data, title = "Response" }: JsonViewerProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-serif text-lg font-semibold tracking-tight">
+          {title}
+        </h3>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="h-7 gap-1.5"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3 text-green-500" />
+                    <span className="text-xs">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span className="text-xs">Copy</span>
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy JSON to clipboard</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      {/* Code */}
       <Card className="overflow-hidden">
-        <CardHeader className="flex-row items-center justify-between py-3">
-          <div className="flex items-center gap-2">
-            <Code2 className="h-3.5 w-3.5 text-muted-foreground/60" />
-            <Badge variant="secondary" className="font-mono text-[10px] tracking-wider uppercase">
-              {title}
-            </Badge>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 text-primary" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {copied ? "Copied!" : "Copy JSON"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </CardHeader>
-        <Separator />
-        <CardContent className="p-0">
-          <ScrollArea className="max-h-[500px]">
-            <pre className="p-4 font-mono text-xs leading-relaxed text-foreground/70 whitespace-pre overflow-x-auto">
-              {json}
-            </pre>
-          </ScrollArea>
-        </CardContent>
+        <ScrollArea className="max-h-[calc(100dvh-280px)]">
+          <pre className="p-4 font-mono text-[12px] leading-[1.8] text-foreground/70 whitespace-pre overflow-x-auto">
+            {json}
+          </pre>
+        </ScrollArea>
       </Card>
-    </motion.div>
+    </div>
   );
 }
