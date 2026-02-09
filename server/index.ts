@@ -55,6 +55,11 @@ const PORT = Number(Bun.env.PORT || 3000);
 const indexPath = new URL("../../apps/web/index.html", import.meta.url);
 const dbPath = new URL("./data/app.db", import.meta.url).pathname;
 
+const dataDir = dbPath.slice(0, dbPath.lastIndexOf("/"));
+try {
+  Bun.spawnSync(["/bin/mkdir", "-p", dataDir]);
+} catch {}
+
 const db = new Database(dbPath);
 
 db.exec(`
