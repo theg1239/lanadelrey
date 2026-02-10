@@ -2,7 +2,7 @@ export interface Segment {
     start_ms: number;
     end_ms: number;
     text: string;
-    confidence: number;
+    confidence?: number | null;
     speaker?: string;
     translated_text?: string | null;
     original_text?: string | null;

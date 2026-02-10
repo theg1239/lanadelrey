@@ -1,7 +1,6 @@
 import type { Insights, JsonRenderSpec, TranscriptionResult } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const DEFAULT_CONFIDENCE = 0.9;
 
 type FastApiTranscriptEntry = {
     transcript?: string;
@@ -17,6 +16,7 @@ type FastApiResponse = {
     recording_id?: string;
     language?: string;
     language_code?: string;
+    language_probability?: number;
     duration_s?: number;
     transcript?: string;
     transcript_english?: string;
@@ -39,6 +39,13 @@ type FastApiResponse = {
     ui_spec?: JsonRenderSpec;
 };
 
+const normalizeConfidence = (value: unknown): number | undefined => {
+    if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+    if (value >= 0 && value <= 1) return value;
+    if (value > 1 && value <= 100) return value / 100;
+    return undefined;
+};
+
 const sanitizeText = (value: unknown): string => {
     if (typeof value !== "string") return "";
     return value.replace(/\s+/g, " ").trim();
@@ -50,7 +57,10 @@ const isMeaningful = (text: string): boolean => {
     return lowered !== "<nospeech>" && lowered !== "nospeech";
 };
 
-const buildSegmentsFromEntries = (entries?: FastApiTranscriptEntry[]) => {
+const buildSegmentsFromEntries = (
+    entries?: FastApiTranscriptEntry[],
+    fallbackConfidence?: number
+) => {
     if (!Array.isArray(entries)) return [];
     return entries
         .map((entry) => {
@@ -69,14 +79,17 @@ const buildSegmentsFromEntries = (entries?: FastApiTranscriptEntry[]) => {
                     isMeaningful(originalText) && originalText !== primaryText
                         ? originalText
                         : undefined,
-                confidence: typeof entry.confidence === "number" ? entry.confidence : DEFAULT_CONFIDENCE,
+                confidence: normalizeConfidence(entry.confidence) ?? fallbackConfidence,
                 speaker: entry.speaker_id != null ? String(entry.speaker_id) : undefined,
             };
         })
         .filter((seg): seg is NonNullable<typeof seg> => Boolean(seg));
 };
 
-const buildSegmentsFromTimestamps = (timestamps?: FastApiResponse["timestamps"]) => {
+const buildSegmentsFromTimestamps = (
+    timestamps?: FastApiResponse["timestamps"],
+    fallbackConfidence?: number
+) => {
     if (!timestamps) return [];
     const wordsEnglish = Array.isArray(timestamps.words_english) ? timestamps.words_english : [];
     const wordsOriginal = Array.isArray(timestamps.words) ? timestamps.words : [];
@@ -105,7 +118,7 @@ const buildSegmentsFromTimestamps = (timestamps?: FastApiResponse["timestamps"])
                 isMeaningful(originalText) && originalText !== primaryText
                     ? originalText
                     : undefined,
-            confidence: DEFAULT_CONFIDENCE,
+            confidence: fallbackConfidence,
         });
     }
 
@@ -160,6 +173,10 @@ const emptyInsights = (): Insights => ({
 });
 
 const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult => {
+    const globalConfidence =
+        normalizeConfidence(data.insights?.transcription?.asr_confidence)
+        ?? normalizeConfidence(data.language_probability);
+
     if (Array.isArray(data.segments) && data.segments.length > 0) {
         return {
             recording_id: String(data.recording_id ?? data.request_id ?? `rec_${Date.now()}`),
@@ -184,8 +201,7 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
                         isMeaningful(originalText) && originalText !== primaryText
                             ? originalText
                             : undefined,
-                    confidence:
-                        typeof seg.confidence === "number" ? seg.confidence : DEFAULT_CONFIDENCE,
+                    confidence: normalizeConfidence(seg.confidence) ?? globalConfidence,
                 };
             }),
             insights: data.insights ?? emptyInsights(),
@@ -193,8 +209,14 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
         };
     }
 
-    const diarizedSegments = buildSegmentsFromEntries(data.diarized_transcript?.entries);
-    const timestampSegments = buildSegmentsFromTimestamps(data.timestamps);
+    const diarizedSegments = buildSegmentsFromEntries(
+        data.diarized_transcript?.entries,
+        globalConfidence
+    );
+    const timestampSegments = buildSegmentsFromTimestamps(
+        data.timestamps,
+        globalConfidence
+    );
     const hasEnglishTimestamps = Array.isArray(data.timestamps?.words_english)
         && data.timestamps?.words_english?.some((word) => isMeaningful(sanitizeText(word)));
     const translatedTranscript = sanitizeText(data.transcript_english ?? "");
@@ -223,7 +245,7 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
                         isMeaningful(originalTranscript) && originalTranscript !== transcriptFallback
                             ? originalTranscript
                             : undefined,
-                    confidence: DEFAULT_CONFIDENCE,
+                    confidence: globalConfidence,
                 },
             ]
             : [];

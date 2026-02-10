@@ -31,6 +31,7 @@ export function TranscriptViewer({ segments }: TranscriptViewerProps) {
           <CardContent className="p-0">
             {segments.map((seg, i) => {
             const isOpen = expanded === i;
+            const confidence = seg.confidence ?? null;
             return (<div key={i}>
                   {i > 0 && <Separator />}
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{
@@ -67,8 +68,8 @@ export function TranscriptViewer({ segments }: TranscriptViewerProps) {
 
                       
                       <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                        <Badge variant="outline" className={cn("font-mono text-[10px] tabular-nums px-1.5 py-0", confidenceColor(seg.confidence))}>
-                          {(seg.confidence * 100).toFixed(0)}%
+                        <Badge variant="outline" className={cn("font-mono text-[10px] tabular-nums px-1.5 py-0", confidence != null ? confidenceColor(confidence) : "text-muted-foreground/50")}>
+                          {confidence != null ? `${(confidence * 100).toFixed(0)}%` : "N/A"}
                         </Badge>
                         <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground/30 transition-transform duration-200", isOpen && "rotate-90 text-muted-foreground")}/>
                       </div>
@@ -88,8 +89,9 @@ export function TranscriptViewer({ segments }: TranscriptViewerProps) {
                             <Separator orientation="vertical" className="h-3"/>
                             <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
                               <Sparkles className="h-2.5 w-2.5"/>
-                              confidence: {seg.confidence.toFixed(4)} (
-                              {confidenceLabel(seg.confidence)})
+                              {confidence != null
+                    ? `confidence: ${confidence.toFixed(4)} (${confidenceLabel(confidence)})`
+                    : "confidence: unavailable"}
                             </span>
                           </div>
                         </motion.div>)}
