@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "backboard>=1.0.5",
     "dotenv>=0.9.9",
     "fastapi>=0.116.1",
     "openai>=1.61.0",

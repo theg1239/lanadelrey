@@ -1,6 +1,7 @@
-import os
-import json
 import asyncio
+import json
+import os
+
 import dotenv
 from backboard import BackboardClient
 
@@ -9,6 +10,7 @@ dotenv.load_dotenv()
 
 # Initialize the Backboard client
 client = BackboardClient(api_key=os.getenv("BACKBOARD_API_KEY"))
+
 
 async def classify_intent(utterance, assistant_id):
     """
@@ -55,11 +57,11 @@ async def classify_intent(utterance, assistant_id):
             content=prompt,
             llm_provider="openai",
             model_name="gpt-4o",
-            stream=False
+            stream=False,
         )
 
         content = response.content.strip()
-        
+
         # Extract JSON if wrapped in markdown blocks
         if "```" in content:
             try:
@@ -75,9 +77,10 @@ async def classify_intent(utterance, assistant_id):
     except Exception as e:
         print(f"Error classifying intent for '{utterance[:30]}...': {e}")
         # If it was an API error, we might see it here
-        if hasattr(e, 'response') and hasattr(e.response, 'text'):
+        if hasattr(e, "response") and hasattr(e.response, "text"):
             print(f"API Response: {e.response.text}")
         return {"label": "NO_COMMITMENT", "reason": f"Classification error: {e}"}
+
 
 async def process_and_log(input_json_path):
     """
@@ -91,10 +94,10 @@ async def process_and_log(input_json_path):
     print("Initializing Intent Classification Assistant...")
     assistant = await client.create_assistant(
         name="Financial Intent Classifier",
-        system_prompt="You are a professional financial services assistant specializing in intent classification."
+        system_prompt="You are a professional financial services assistant specializing in intent classification.",
     )
 
-    with open(input_json_path, 'r', encoding='utf-8') as f:
+    with open(input_json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     # Extract utterances from diarized transcript if available, or use the top-level list
@@ -102,35 +105,42 @@ async def process_and_log(input_json_path):
     entries = []
     if isinstance(data, list):
         entries = data
-    elif 'diarized_transcript' in data and 'entries' in data['diarized_transcript']:
-        entries = data['diarized_transcript']['entries']
+    elif "diarized_transcript" in data and "entries" in data["diarized_transcript"]:
+        entries = data["diarized_transcript"]["entries"]
 
     print(f"Found {len(entries)} entries to process.")
 
     for i, entry in enumerate(entries):
-        utterance = entry.get("transcript_english") or entry.get("utterance") or entry.get("transcript")
-        
+        utterance = (
+            entry.get("transcript_english")
+            or entry.get("utterance")
+            or entry.get("transcript")
+        )
+
         if not utterance:
             continue
-            
-        print(f"({i+1}/{len(entries)}) Classifying: {utterance[:50]}...")
-        
+
+        print(f"({i + 1}/{len(entries)}) Classifying: {utterance[:50]}...")
+
         result = await classify_intent(utterance, assistant.assistant_id)
-        
+
         # Store result back in the entry (optional but useful)
         entry["intent_classification"] = result
-        
+
         label = result.get("label", "UNKNOWN")
         print(f"  -> Result: {label}")
 
     # Save results to a new flagged file
     output_path = input_json_path.replace(".json", "_flagged.json")
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
-    
+
     print(f"\nProcessing complete! Results saved to: {output_path}")
+
 
 if __name__ == "__main__":
     # Ensure we run from the server directory or handle pathing
-    input_file = os.path.join(os.path.dirname(__file__), "output", "translated_output.json")
+    input_file = os.path.join(
+        os.path.dirname(__file__), "output", "translated_output.json"
+    )
     asyncio.run(process_and_log(input_file))
