@@ -139,6 +139,7 @@ const catalog = defineCatalog(schema, {
             description: "Review and correction queue",
         },
     },
+    actions: {},
 });
 
 const { registry } = defineRegistry(catalog, {
