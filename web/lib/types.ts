@@ -125,4 +125,4 @@ export interface TranscriptionResult {
     insights: Insights;
     ui_spec?: JsonRenderSpec;
 }
-export type UploadStatus = "idle" | "uploading" | "transcribing" | "done" | "error";
+export type UploadStatus = "idle" | "uploading" | "transcribing" | "analyzing" | "finalizing" | "done" | "error";

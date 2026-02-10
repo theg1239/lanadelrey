@@ -100,7 +100,7 @@ async def audio_update(audio: UploadFile = File(...)):
         intent_output = await run_intent_flagger(translated_output)
         insights_payload = generate_insights(translated_output)
         return {
-            "translate_output": translated_output,
+            **translated_output,
             "intent_output": intent_output,
             "insights": insights_payload.get("insights"),
             "ui_spec": insights_payload.get("ui_spec"),

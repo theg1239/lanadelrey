@@ -16,7 +16,7 @@ type FastApiTranscriptEntry = {
     speaker_id?: string | number;
 };
 
-type FastApiResponse = {
+type FastApiTranscriptData = {
     request_id?: string;
     recording_id?: string;
     language?: string;
@@ -40,8 +40,14 @@ type FastApiResponse = {
         translated_text?: string;
         original_text?: string;
     }>;
+};
+
+type FastApiResponse = FastApiTranscriptData & {
     insights?: Insights;
     ui_spec?: JsonRenderSpec;
+    // Backend wraps transcript data inside translate_output
+    translate_output?: FastApiTranscriptData;
+    intent_output?: Record<string, unknown> | null;
 };
 
 type LibraryAudioResponse = {
@@ -181,7 +187,13 @@ const emptyInsights = (): Insights => ({
     },
 });
 
-const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult => {
+const normalizeFastApiResponse = (raw: FastApiResponse): TranscriptionResult => {
+    // Backend wraps transcript data inside translate_output — flatten it
+    const translate = raw.translate_output;
+    const data: FastApiResponse = translate
+        ? { ...translate, insights: raw.insights, ui_spec: raw.ui_spec }
+        : raw;
+
     const globalConfidence =
         normalizeConfidence(data.insights?.transcription?.asr_confidence)
         ?? normalizeConfidence(data.language_probability);
@@ -233,13 +245,13 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
     const hasTranslatedTranscript = Boolean(translatedTranscript && translatedTranscript !== originalTranscript);
     const transcriptFallback = sanitizeText(data.transcript_english ?? data.transcript ?? "");
 
-    const preferredSegments = hasEnglishTimestamps
-        ? timestampSegments
-        : hasTranslatedTranscript
-            ? []
-            : diarizedSegments.length
-                ? diarizedSegments
-                : timestampSegments;
+    const preferredSegments = diarizedSegments.length
+        ? diarizedSegments
+        : hasEnglishTimestamps
+            ? timestampSegments
+            : timestampSegments.length
+                ? timestampSegments
+                : [];
 
     const segments = preferredSegments.length
         ? preferredSegments
@@ -282,28 +294,46 @@ export async function transcribeAudio(
     onProgress?.("uploading");
     const formData = new FormData();
     formData.append("audio", file);
-    const res = await fetch(`${API_BASE}/audio/update`, {
-        method: "POST",
-        body: formData,
-    });
-    if (!res.ok) {
-        const contentType = res.headers.get("content-type") ?? "";
-        let err = "";
-        if (contentType.includes("application/json")) {
-            const payload = await res.json().catch(() => null);
-            if (payload && typeof payload === "object") {
-                err = (payload as { detail?: string; error?: string }).detail
-                    ?? (payload as { error?: string }).error
-                    ?? JSON.stringify(payload);
+
+    // Simulate staged progress since the backend is a single request
+    const progressTimer = setTimeout(() => onProgress?.("transcribing"), 800);
+    const analyzeTimer = setTimeout(() => onProgress?.("analyzing"), 4000);
+    const finalizeTimer = setTimeout(() => onProgress?.("finalizing"), 8000);
+
+    try {
+        const res = await fetch(`${API_BASE}/audio/update`, {
+            method: "POST",
+            body: formData,
+        });
+
+        clearTimeout(progressTimer);
+        clearTimeout(analyzeTimer);
+        clearTimeout(finalizeTimer);
+
+        if (!res.ok) {
+            const contentType = res.headers.get("content-type") ?? "";
+            let err = "";
+            if (contentType.includes("application/json")) {
+                const payload = await res.json().catch(() => null);
+                if (payload && typeof payload === "object") {
+                    err = (payload as { detail?: string; error?: string }).detail
+                        ?? (payload as { error?: string }).error
+                        ?? JSON.stringify(payload);
+                }
+            } else {
+                err = await res.text();
             }
-        } else {
-            err = await res.text();
+            throw new Error(err || `Transcription failed (${res.status})`);
         }
-        throw new Error(err || `Transcription failed (${res.status})`);
+        onProgress?.("done");
+        const payload = (await res.json()) as FastApiResponse;
+        return normalizeFastApiResponse(payload);
+    } catch (error) {
+        clearTimeout(progressTimer);
+        clearTimeout(analyzeTimer);
+        clearTimeout(finalizeTimer);
+        throw error;
     }
-    onProgress?.("done");
-    const payload = (await res.json()) as FastApiResponse;
-    return normalizeFastApiResponse(payload);
 }
 
 export async function listLibraryAudio(): Promise<LibraryAudioItem[]> {

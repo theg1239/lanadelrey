@@ -15,6 +15,140 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 
 type AppSection = "dashboard" | "library" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
+
+const PIPELINE_STAGES = [
+    { key: "uploading", label: "Ingesting", desc: "Uploading audio & detecting codec" },
+    { key: "transcribing", label: "Transcribing", desc: "ASR with speaker diarization" },
+    { key: "analyzing", label: "Analyzing", desc: "Intent, entity & obligation extraction" },
+    { key: "finalizing", label: "Finalizing", desc: "Building structured insights" },
+] as const;
+
+function useElapsedTime(running: boolean) {
+    const [elapsed, setElapsed] = useState(0);
+    const startRef = useRef<number | null>(null);
+    useEffect(() => {
+        if (running) {
+            startRef.current = Date.now();
+            setElapsed(0);
+            const id = setInterval(() => {
+                setElapsed(Date.now() - (startRef.current ?? Date.now()));
+            }, 100);
+            return () => clearInterval(id);
+        } else {
+            startRef.current = null;
+        }
+    }, [running]);
+    return elapsed;
+}
+
+function PipelineStepper({ status }: { status: UploadStatus }) {
+    const elapsed = useElapsedTime(status !== "idle" && status !== "done" && status !== "error");
+    const currentIdx = PIPELINE_STAGES.findIndex(s => s.key === status);
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <p className="text-[10px] tracking-widest uppercase text-muted-foreground/50 font-semibold">
+                    Pipeline
+                </p>
+                <span className="font-mono text-[10px] text-primary tabular-nums">
+                    {(elapsed / 1000).toFixed(1)}s
+                </span>
+            </div>
+
+            <div className="space-y-1">
+                {PIPELINE_STAGES.map((stage, i) => {
+                    const isDone = currentIdx > i;
+                    const isActive = currentIdx === i;
+                    const isPending = currentIdx < i;
+
+                    return (
+                        <motion.div
+                            key={stage.key}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.08, duration: 0.3 }}
+                            className={cn(
+                                "flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                                isActive && "bg-primary/[0.08] border border-primary/20",
+                                isDone && "opacity-60",
+                                isPending && "opacity-30",
+                            )}
+                        >
+                            <div className="shrink-0 mt-0.5 relative">
+                                {isDone ? (
+                                    <div className="w-5 h-5 bg-primary/20 border border-primary/40 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                ) : isActive ? (
+                                    <div className="w-5 h-5 border-2 border-primary rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                    </div>
+                                ) : (
+                                    <div className="w-5 h-5 border border-border/60 rounded-full flex items-center justify-center">
+                                        <div className="w-1.5 h-1.5 bg-border/40 rounded-full" />
+                                    </div>
+                                )}
+                                {i < PIPELINE_STAGES.length - 1 && (
+                                    <div className={cn(
+                                        "absolute top-6 left-1/2 -translate-x-1/2 w-px h-4",
+                                        isDone ? "bg-primary/30" : "bg-border/30"
+                                    )} />
+                                )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    {isActive ? (
+                                        <Shimmer as="p" className="text-[12px] font-semibold" duration={1.8}>
+                                            {stage.label}
+                                        </Shimmer>
+                                    ) : (
+                                        <p className={cn(
+                                            "text-[12px] font-semibold",
+                                            isDone ? "text-foreground/60" : "text-muted-foreground/40"
+                                        )}>
+                                            {stage.label}
+                                        </p>
+                                    )}
+                                </div>
+                                <p className={cn(
+                                    "text-[10px] leading-relaxed mt-0.5",
+                                    isActive ? "text-muted-foreground/70" : "text-muted-foreground/30"
+                                )}>
+                                    {stage.desc}
+                                </p>
+                            </div>
+                        </motion.div>
+                    );
+                })}
+            </div>
+
+            {/* Progress bar */}
+            <div className="space-y-1.5 pt-1">
+                <div className="h-1 w-full bg-border/30 rounded-full overflow-hidden">
+                    <motion.div
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: "0%" }}
+                        animate={{
+                            width: currentIdx === 0 ? "15%" : currentIdx === 1 ? "45%" : currentIdx === 2 ? "75%" : currentIdx === 3 ? "90%" : "0%"
+                        }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="font-mono text-[9px] text-muted-foreground/40">
+                        {currentIdx >= 0 ? `${currentIdx + 1}/${PIPELINE_STAGES.length}` : ""}
+                    </span>
+                    <span className="font-mono text-[9px] text-muted-foreground/40">
+                        processing
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
 function seeded(n: number) {
     const x = Math.sin(n * 9301 + 49297) * 49297;
     return x - Math.floor(x);
@@ -72,14 +206,19 @@ function DropZone({ onFile, processing, file, status, }: {
                 </div>
                 {processing && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-3">
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-primary animate-pulse" />
+                        <div className="w-2 h-2 bg-primary animate-pulse rounded-full" />
                         <Shimmer as="span" className="font-mono text-[11px] tracking-[0.2em] uppercase" duration={1.5}>
-                            {status === "uploading" ? "uploading audio" : "transcribing"}
+                            {status === "uploading" ? "ingesting audio" : status === "transcribing" ? "running ASR" : status === "analyzing" ? "extracting insights" : "building output"}
                         </Shimmer>
                     </div>
                     <div className="w-48 space-y-1.5">
-                        <div className="h-[2px] w-full bg-border/30 animate-pulse" />
-                        <div className="h-[2px] w-3/4 bg-border/20 animate-pulse" style={{ animationDelay: '200ms' }} />
+                        <div className="h-[2px] w-full bg-primary/20 rounded-full overflow-hidden">
+                            <motion.div
+                                className="h-full bg-primary/60 rounded-full w-[40%]"
+                                animate={{ x: ["-100%", "100%"] }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                        </div>
                     </div>
                 </motion.div>)}
             </motion.div>) : (<motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative flex flex-col items-center gap-5">
@@ -294,7 +433,7 @@ export default function AppPage() {
             const data = await transcribeAudio(f, (s) => setStatus(s as UploadStatus));
             setResult(data);
             setStatus("done");
-            setActiveTab("transcript");
+            setActiveTab(data.segments.length > 0 ? "transcript" : "insights");
         }
         catch (err) {
             setError(err instanceof Error ? err.message : "transcription failed");
@@ -355,7 +494,7 @@ export default function AppPage() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     }, [result]);
-    const isProcessing = status === "uploading" || status === "transcribing";
+    const isProcessing = status === "uploading" || status === "transcribing" || status === "analyzing" || status === "finalizing";
     const hasResult = result && status === "done";
     const heading = activeSection === "dashboard"
         ? "Dashboard"
@@ -374,9 +513,9 @@ export default function AppPage() {
                 <div className="flex items-center gap-3">
                     <h1 className="text-sm font-semibold text-foreground">{heading}</h1>
                     {isProcessing && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-primary animate-pulse" />
+                        <div className="w-2 h-2 bg-primary animate-pulse rounded-full" />
                         <Shimmer as="span" className="font-mono text-[10px] tracking-[0.2em] uppercase" duration={1.5}>
-                            {status === "uploading" ? "uploading" : "transcribing"}
+                            {status === "uploading" ? "ingesting" : status === "transcribing" ? "transcribing" : status === "analyzing" ? "analyzing" : "finalizing"}
                         </Shimmer>
                     </motion.div>)}
                 </div>
@@ -440,9 +579,21 @@ export default function AppPage() {
 
 
                                 {hasResult && activeTab === "transcript" && (<motion.div key="transcript" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+                                    {result.segments.length > 0 ? (
                                     <ScrollArea className="h-full">
                                         {result.segments.map((seg, i) => (<SegRow key={i} seg={seg} index={i} isActive={activeSegment === i} onClick={() => setActiveSegment(activeSegment === i ? null : i)} />))}
                                     </ScrollArea>
+                                    ) : (
+                                    <div className="h-full flex flex-col items-center justify-center gap-4 px-8">
+                                        <div className="text-center space-y-2">
+                                            <p className="text-sm text-muted-foreground/70">No transcript segments available</p>
+                                            <p className="text-[11px] text-muted-foreground/50">The audio was processed but individual segments could not be extracted. Check the Insights tab for analysis results.</p>
+                                        </div>
+                                        <button onClick={() => setActiveTab("insights")} className="font-mono text-[11px] tracking-wider uppercase text-primary hover:text-primary/80 border border-primary/30 px-4 py-2 rounded-lg transition-colors">
+                                            View Insights
+                                        </button>
+                                    </div>
+                                    )}
                                 </motion.div>)}
 
 
@@ -472,7 +623,7 @@ export default function AppPage() {
                 </div>
 
 
-                <div className="w-72 shrink-0 flex flex-col border-l border-border/30 overflow-hidden bg-card/20">
+                <div className="w-72 shrink-0 flex flex-col border-l border-border/30 overflow-hidden bg-card/20 min-h-0">
 
                     <div className="shrink-0 h-10 flex items-center px-4 border-b border-border/30">
                         <span className="text-[11px] tracking-wide uppercase text-muted-foreground/60 font-semibold">
@@ -481,11 +632,15 @@ export default function AppPage() {
                     </div>
 
 
-                    <ScrollArea className="flex-1">
+                    <ScrollArea className="flex-1 min-h-0">
                         <AnimatePresence mode="wait">
 
                             {!hasResult && (<motion.div key="sidebar-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 space-y-6">
 
+                                {isProcessing ? (
+                                    <PipelineStepper status={status} />
+                                ) : (
+                                    <>
                                 <div className="space-y-3">
                                     <p className="text-[10px] tracking-widest uppercase text-muted-foreground/50 font-semibold">
                                         How it works
@@ -495,7 +650,7 @@ export default function AppPage() {
                                         { step: "2", name: "Transcribe", desc: "Fintech-tuned ASR with speaker diarization" },
                                         { step: "3", name: "Analyze", desc: "Entity extraction, intent classification, and obligation detection" },
                                     ].map((stage) => (<div key={stage.step} className="flex gap-3 items-start">
-                        <div className="w-5 h-5 bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-5 h-5 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
                                             <span className="text-[10px] font-semibold text-primary tabular-nums">
                                                 {stage.step}
                                             </span>
@@ -525,7 +680,7 @@ export default function AppPage() {
                                             "Obligation Detection",
                                             "Confidence Scoring",
                                             "Speaker Diarization",
-                                        ].map((cap) => (<span key={cap} className="text-[10px] text-muted-foreground/70 bg-muted/30 border border-border/40 px-2 py-1">
+                                        ].map((cap) => (<span key={cap} className="text-[10px] text-muted-foreground/70 bg-muted/30 border border-border/40 px-2 py-1 rounded-md">
                                             {cap}
                                         </span>))}
                                     </div>
@@ -549,10 +704,31 @@ export default function AppPage() {
                                         </p>
                                     </div>))}
                                 </div>
+                                    </>
+                                )}
                             </motion.div>)}
 
 
                             {hasResult && (<motion.div key="sidebar-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 space-y-5">
+
+                                {/* Summary */}
+                                {result.insights?.summary && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 }}
+                                        className="space-y-2"
+                                    >
+                                        <p className="text-[10px] tracking-widest uppercase text-muted-foreground/50 font-semibold">
+                                            Summary
+                                        </p>
+                                        <div className="bg-primary/[0.04] border border-primary/15 rounded-lg p-3">
+                                            <p className="text-[12px] leading-[1.65] text-foreground/75">
+                                                {result.insights.summary}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
 
                                 <div className="space-y-2">
                                     <p className="text-[10px] tracking-widest uppercase text-muted-foreground/50 font-semibold">
