@@ -14,8 +14,15 @@ import { InsightsFallback, InsightsRenderer } from "@/components/insights-render
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { MinimalVoiceAgent } from "@/components/voice-agent/minimal-voice-agent";
 
-type AppSection = "dashboard" | "library" | "settings";
+type AppSection = "dashboard" | "library" | "voice" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
+
+const parseAppSection = (value: string | null): AppSection | null => {
+    if (value === "dashboard" || value === "library" || value === "voice" || value === "settings") {
+        return value;
+    }
+    return null;
+};
 
 const PIPELINE_STAGES = [
     { key: "uploading", label: "Ingesting", desc: "Uploading audio & detecting codec" },
@@ -381,6 +388,7 @@ function LeftSidebar({ activeSection, onSelect }: {
     const navItems = [
         { label: "Dashboard", key: "dashboard" as const },
         { label: "Library", key: "library" as const },
+        { label: "Voice", key: "voice" as const },
         { label: "Settings", key: "settings" as const },
     ];
     return (<div className="w-52 shrink-0 flex flex-col border-r border-border/40 bg-sidebar">
@@ -404,16 +412,98 @@ function LeftSidebar({ activeSection, onSelect }: {
 
 
         <div className="p-3 border-t border-border/30">
-            <a href="/voice" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors">
-                Voice agent
-            </a>
             <a href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors">
                 ← Back to home
             </a>
         </div>
     </div>);
 }
+
+function VoicePanel({ items, status, error }: {
+    items: LibraryAudioItem[];
+    status: LibraryStatus;
+    error: string | null;
+}) {
+    return (<div className="h-full overflow-hidden">
+        <ScrollArea className="h-full">
+            <div className="p-6 space-y-6">
+
+                <div className="space-y-2">
+                    <p className="text-sm font-semibold text-foreground/85">
+                        Voice Agent
+                    </p>
+                    <p className="text-[12px] leading-relaxed text-muted-foreground/70 max-w-xl">
+                        Tap the orb to record. Say <span className="font-mono text-foreground/80">recording 3</span>{" "}
+                        to analyze the 3rd file in the library (for example{" "}
+                        <span className="font-mono text-foreground/80">Sample3</span>).
+                        Then ask questions like{" "}
+                        <span className="font-mono text-foreground/80">what did they agree to?</span>{" "}
+                        or{" "}
+                        <span className="font-mono text-foreground/80">summarize this call</span>.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/50">
+                        After analysis, the agent shows the active recording on the orb. Click it to view the transcript and key points.
+                    </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                        "recording 3",
+                        "analyze Sample10",
+                        "what is this call about?",
+                        "what did they agree to?",
+                    ].map((ex) => (<div key={ex} className="border border-border/40 bg-card/20 px-3 py-2 rounded-lg">
+                        <p className="font-mono text-[11px] text-foreground/80">
+                            {ex}
+                        </p>
+                    </div>))}
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-mono tracking-wider uppercase text-muted-foreground/50">
+                            Recording Library Index
+                        </p>
+                        <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
+                            {status === "ready" ? `${items.length} files` : status === "loading" ? "loading…" : ""}
+                        </span>
+                    </div>
+
+                    {status === "error" && (
+                        <p className="text-[11px] text-destructive/80">
+                            {error ?? "Failed to load library"}
+                        </p>
+                    )}
+
+                    {status === "loading" && (
+                        <div className="border border-border/40 bg-card/20 rounded-lg p-4">
+                            <Shimmer as="p" className="font-mono text-[11px] tracking-wider uppercase" duration={1.6}>
+                                loading library…
+                            </Shimmer>
+                        </div>
+                    )}
+
+                    {status === "ready" && items.length > 0 && (
+                        <div className="border border-border/40 bg-card/10 rounded-lg overflow-hidden">
+                            <div className="divide-y divide-border/30">
+                                {items.map((it, i) => (<div key={it.url} className="flex items-center gap-3 px-4 py-2.5">
+                                    <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums w-10 shrink-0">
+                                        {String(i + 1).padStart(2, "0")}
+                                    </span>
+                                    <span className="text-[12px] text-foreground/80 break-all">
+                                        {it.name}
+                                    </span>
+                                </div>))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </ScrollArea>
+    </div>);
+}
 export default function AppPage() {
+    const initializedFromUrlRef = useRef(false);
     const [activeSection, setActiveSection] = useState<AppSection>("dashboard");
     const [status, setStatus] = useState<UploadStatus>("idle");
     const [file, setFile] = useState<File | null>(null);
@@ -426,6 +516,15 @@ export default function AppPage() {
     const [libraryItems, setLibraryItems] = useState<LibraryAudioItem[]>([]);
     const [libraryError, setLibraryError] = useState<string | null>(null);
     const [activeLibraryItemUrl, setActiveLibraryItemUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (initializedFromUrlRef.current) return;
+        const requested = parseAppSection(new URLSearchParams(window.location.search).get("section"));
+        if (requested) {
+            setActiveSection(requested);
+        }
+        initializedFromUrlRef.current = true;
+    }, []);
 
     const handleFile = useCallback(async (f: File) => {
         setFile(f);
@@ -458,7 +557,7 @@ export default function AppPage() {
         }
     }, []);
     useEffect(() => {
-        if (activeSection !== "library") {
+        if (activeSection !== "library" && activeSection !== "voice") {
             return;
         }
         if (libraryStatus === "idle") {
@@ -504,7 +603,9 @@ export default function AppPage() {
         ? "Dashboard"
         : activeSection === "library"
             ? "Library"
-            : "Settings";
+            : activeSection === "voice"
+                ? "Voice"
+                : "Settings";
     return (<div className="h-dvh w-dvw flex overflow-hidden bg-background">
 
         <LeftSidebar activeSection={activeSection} onSelect={handleSelectSection} />
@@ -551,7 +652,7 @@ export default function AppPage() {
             <div className="flex-1 flex overflow-hidden">
 
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                    {activeSection === "library" ? (<LibraryPanel items={libraryItems} status={libraryStatus} error={libraryError} onAnalyze={handleAnalyzeLibraryItem} activeItemUrl={activeLibraryItemUrl} />) : activeSection === "settings" ? (<div className="h-full flex items-center justify-center px-8">
+                    {activeSection === "library" ? (<LibraryPanel items={libraryItems} status={libraryStatus} error={libraryError} onAnalyze={handleAnalyzeLibraryItem} activeItemUrl={activeLibraryItemUrl} />) : activeSection === "voice" ? (<VoicePanel items={libraryItems} status={libraryStatus} error={libraryError} />) : activeSection === "settings" ? (<div className="h-full flex items-center justify-center px-8">
                         <p className="text-sm text-muted-foreground/70 text-center">
                             Settings are not configured yet.
                         </p>
@@ -977,8 +1078,10 @@ export default function AppPage() {
                 </div>
             </div>
 
-            {/* Minimal Voice Agent — self-positions in corner, animates to center */}
-            <MinimalVoiceAgent />
+            {/* Voice Agent lives inside the /app shell as a sidebar section */}
+            {activeSection === "voice" && (
+                <MinimalVoiceAgent dockedLeft={260} />
+            )}
         </div>
     </div>);
 }

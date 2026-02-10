@@ -55,7 +55,7 @@ Example:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/audio/update" \
-  -F "audio=@/path/to/sample.m4a"
+  -F "audio=@/path/to/sample.mp3"
 ```
 
 #### Output
