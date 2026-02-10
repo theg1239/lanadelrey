@@ -17,7 +17,7 @@ function PlatformPreview() {
             
             <div className="absolute -inset-8 bg-primary/[0.06] rounded-3xl blur-[60px] pointer-events-none"/>
 
-            <div className="relative rounded-xl border-2 border-border bg-card overflow-hidden shadow-lg neo-card">
+            <div className="relative border-2 border-border bg-card overflow-hidden shadow-lg neo-card">
                 
                 <div className="h-9 flex items-center justify-between px-4 border-b border-border/50 bg-background/50">
                     <div className="flex items-center gap-2">
@@ -41,7 +41,7 @@ function PlatformPreview() {
                                     <span className="font-mono text-[9px] text-secondary tabular-nums pt-0.5 shrink-0">
                                         {seg.time}
                                     </span>
-                                    <span className="text-[11px] leading-[1.5] text-card-foreground/70 font-serif flex-1">
+                                    <span className="text-[11px] leading-[1.5] text-card-foreground/70 flex-1">
                                         {seg.text}
                                     </span>
                                     <div className="shrink-0 flex items-center gap-1 pt-0.5">
@@ -78,7 +78,7 @@ function PlatformPreview() {
                             </motion.div>
                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3.0 }} className="space-y-1">
                                 <span className="font-mono text-[8px] tracking-[0.2em] uppercase text-muted-foreground/40">obligation</span>
-                                <p className="text-[10px] leading-[1.5] text-card-foreground/50 font-serif italic border-l-2 border-primary/30 pl-2">
+                                <p className="text-[10px] leading-[1.5] text-card-foreground/50 italic border-l-2 border-primary/30 pl-2">
                                     Commit to payment by Friday
                                 </p>
                             </motion.div>
@@ -131,20 +131,20 @@ export function LandingHero() {
                         <span className="text-gradient-primary">can&apos;t show you</span>
                     </motion.h1>
 
-                    <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.35 }} className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed font-serif text-balance">
+                    <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.35 }} className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed text-balance">
                         Drop any audio file. Get transcripts, entities, intents, and obligations
                         in seconds. Enterprise-grade speech understanding built for financial services.
                     </motion.p>
 
                     
                     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                        <a href="/app" className="inline-flex items-center gap-2 px-7 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all shadow-md neo-card">
+                        <a href="/app" className="inline-flex items-center gap-2 px-7 py-3 bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all shadow-md neo-card">
                             Try the Platform
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                             </svg>
                         </a>
-                        <a href="/get-started" className="inline-flex items-center gap-2 px-7 py-3 rounded-lg border-2 border-border text-foreground text-sm font-medium hover:bg-card/50 transition-colors">
+                        <a href="/get-started" className="inline-flex items-center gap-2 px-7 py-3 border-2 border-border text-foreground text-sm font-medium hover:bg-card/50 transition-colors">
                             Get Started
                         </a>
                     </motion.div>

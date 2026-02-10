@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InsightsFallback, InsightsRenderer } from "@/components/insights-renderer";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 
 type AppSection = "dashboard" | "library" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
@@ -69,11 +70,17 @@ function DropZone({ onFile, processing, file, status, }: {
                         {formatFileSize(file.size)}
                     </p>
                 </div>
-                {processing && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                    <span className="font-mono text-[11px] tracking-wider uppercase text-primary/80">
-                        {status === "uploading" ? "uploading" : "transcribing"}
-                    </span>
+                {processing && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-primary animate-pulse" />
+                        <Shimmer as="span" className="font-mono text-[11px] tracking-[0.2em] uppercase" duration={1.5}>
+                            {status === "uploading" ? "uploading audio" : "transcribing"}
+                        </Shimmer>
+                    </div>
+                    <div className="w-48 space-y-1.5">
+                        <div className="h-[2px] w-full bg-border/30 animate-pulse" />
+                        <div className="h-[2px] w-3/4 bg-border/20 animate-pulse" style={{ animationDelay: '200ms' }} />
+                    </div>
                 </motion.div>)}
             </motion.div>) : (<motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative flex flex-col items-center gap-5">
                 <WaveViz bars={48} />
@@ -114,7 +121,7 @@ function SegRow({ seg, index, isActive, onClick, }: {
 
 
         <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-[13px] leading-[1.65] text-foreground/80 font-serif">
+            <p className="text-[13px] leading-[1.65] text-foreground/80">
                 {originalText && (<span className="font-mono text-[9px] tracking-wider uppercase text-muted-foreground/45 mr-2">
                     english
                 </span>)}
@@ -161,10 +168,15 @@ function LibraryPanel({ items, status, error, onAnalyze, activeItemUrl, }: {
     activeItemUrl: string | null;
 }) {
     if (status === "loading") {
-        return (<div className="h-full flex items-center justify-center">
-            <p className="font-mono text-[11px] tracking-wider uppercase text-muted-foreground/50">
-                Loading library...
-            </p>
+        return (<div className="h-full flex flex-col items-center justify-center gap-4">
+            <div className="space-y-3 w-full max-w-sm px-8">
+                <div className="h-3 w-3/4 bg-border/40 animate-pulse" />
+                <div className="h-3 w-full bg-border/30 animate-pulse" style={{ animationDelay: '150ms' }} />
+                <div className="h-3 w-1/2 bg-border/20 animate-pulse" style={{ animationDelay: '300ms' }} />
+            </div>
+            <Shimmer as="p" className="font-mono text-[11px] tracking-[0.2em] uppercase">
+                Loading library
+            </Shimmer>
         </div>);
     }
     if (status === "error") {
@@ -197,12 +209,12 @@ function LibraryPanel({ items, status, error, onAnalyze, activeItemUrl, }: {
                     const isAnalyzing = activeItemUrl === item.url;
                     const modified = new Date(item.modifiedAt);
                     const ext = item.name.split(".").pop()?.toUpperCase() ?? "AUDIO";
-                    return (<div key={item.url} className="rounded-xl border border-border/40 bg-card/20 p-3 flex flex-col gap-3 min-h-[140px]">
+                    return (<div key={item.url} className="border border-border/40 bg-card/20 p-3 flex flex-col gap-3 min-h-[140px]">
                         <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-foreground/85 break-all leading-snug">
                                 {item.name}
                             </p>
-                            <span className="font-mono text-[9px] tracking-wide uppercase text-muted-foreground/50 px-1.5 py-0.5 rounded border border-border/50 bg-background/40 shrink-0">
+                            <span className="font-mono text-[9px] tracking-wide uppercase text-muted-foreground/50 px-1.5 py-0.5 border border-border/50 bg-background/40 shrink-0">
                                 {ext}
                             </span>
                         </div>
@@ -211,10 +223,10 @@ function LibraryPanel({ items, status, error, onAnalyze, activeItemUrl, }: {
                             {" · "}
                             {Number.isNaN(modified.getTime()) ? "unknown date" : modified.toLocaleDateString()}
                         </p>
-                        <button onClick={() => onAnalyze(item)} disabled={isAnalyzing} className={cn("mt-auto w-full text-center font-mono text-[10px] tracking-wider uppercase rounded-md border px-2 py-1.5 transition-colors", isAnalyzing
+                        <button onClick={() => onAnalyze(item)} disabled={isAnalyzing} className={cn("mt-auto w-full text-center font-mono text-[10px] tracking-wider uppercase border px-2 py-1.5 transition-colors", isAnalyzing
                             ? "border-primary/30 bg-primary/10 text-primary/80 cursor-wait"
                             : "border-border/50 bg-background/50 text-muted-foreground/70 hover:text-foreground/80 hover:border-primary/30 hover:bg-primary/5")}>
-                            {isAnalyzing ? "Analyzing..." : "Analyze"}
+                            {isAnalyzing ? (<Shimmer as="span" className="font-mono text-[10px]" duration={1.5}>Analyzing...</Shimmer>) : "Analyze"}
                         </button>
                     </div>);
                 })}
@@ -362,10 +374,10 @@ export default function AppPage() {
                 <div className="flex items-center gap-3">
                     <h1 className="text-sm font-semibold text-foreground">{heading}</h1>
                     {isProcessing && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-                        <span className="font-mono text-[10px] text-secondary tracking-wider uppercase">
-                            {status === "uploading" ? "upload" : "transcribing"}
-                        </span>
+                        <div className="w-2 h-2 bg-primary animate-pulse" />
+                        <Shimmer as="span" className="font-mono text-[10px] tracking-[0.2em] uppercase" duration={1.5}>
+                            {status === "uploading" ? "uploading" : "transcribing"}
+                        </Shimmer>
                     </motion.div>)}
                 </div>
 
@@ -483,7 +495,7 @@ export default function AppPage() {
                                         { step: "2", name: "Transcribe", desc: "Fintech-tuned ASR with speaker diarization" },
                                         { step: "3", name: "Analyze", desc: "Entity extraction, intent classification, and obligation detection" },
                                     ].map((stage) => (<div key={stage.step} className="flex gap-3 items-start">
-                                        <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-5 h-5 bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                                             <span className="text-[10px] font-semibold text-primary tabular-nums">
                                                 {stage.step}
                                             </span>
@@ -513,7 +525,7 @@ export default function AppPage() {
                                             "Obligation Detection",
                                             "Confidence Scoring",
                                             "Speaker Diarization",
-                                        ].map((cap) => (<span key={cap} className="text-[10px] text-muted-foreground/70 bg-muted/30 border border-border/40 rounded-md px-2 py-1">
+                                        ].map((cap) => (<span key={cap} className="text-[10px] text-muted-foreground/70 bg-muted/30 border border-border/40 px-2 py-1">
                                             {cap}
                                         </span>))}
                                     </div>
@@ -730,7 +742,7 @@ export default function AppPage() {
                                     </p>
                                     <div className="space-y-2">
                                         {result.insights.obligations.map((ob, i) => (<div key={i} className="bg-primary/[0.04] border border-primary/15 rounded-lg p-2.5">
-                                            <p className="text-[11px] leading-[1.6] text-foreground/70 font-serif italic">
+                                            <p className="text-[11px] leading-[1.6] text-foreground/70 italic">
                                                 {ob.text}
                                             </p>
                                             {(ob.speaker || ob.due_date) && (

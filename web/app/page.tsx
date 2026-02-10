@@ -18,7 +18,7 @@ function FeatureSection({ badge, title, description, children, reverse = false, 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-[1.1]">
             {title}
           </h2>
-          <p className="text-base text-muted-foreground max-w-md mx-auto lg:mx-0 font-serif leading-relaxed">
+          <p className="text-base text-muted-foreground max-w-md mx-auto lg:mx-0 leading-relaxed">
             {description}
           </p>
         </motion.div>
@@ -45,9 +45,9 @@ function FormatGrid() {
         { ext: "WMA", color: "bg-secondary/20 text-secondary border-secondary/30" },
         { ext: "AIFF", color: "bg-accent/30 text-accent-foreground border-accent/50" },
     ];
-    return (<div className="rounded-xl border-2 border-border bg-card p-6 shadow-md">
+    return (<div className="border-2 border-border bg-card p-6 shadow-md">
       <div className="grid grid-cols-4 gap-2">
-        {formats.map((f, i) => (<motion.div key={f.ext} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.05, duration: 0.3 }} className={`font-mono text-xs font-semibold text-center py-3 rounded-lg border-2 ${f.color} neo-card cursor-default`}>
+        {formats.map((f, i) => (<motion.div key={f.ext} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.05, duration: 0.3 }} className={`font-mono text-xs font-semibold text-center py-3 border-2 ${f.color} neo-card cursor-default`}>
             .{f.ext.toLowerCase()}
           </motion.div>))}
       </div>
@@ -68,7 +68,7 @@ function TranscriptVisual() {
         { speaker: "B", time: "00:15", text: "Thank you. I see a balance of forty-two thousand three hundred.", conf: 0.91 },
         { speaker: "A", time: "00:21", text: "I'd like to set up an EMI plan for that amount.", conf: 0.93 },
     ];
-    return (<div className="rounded-xl border-2 border-border bg-card overflow-hidden shadow-md">
+    return (<div className="border-2 border-border bg-card overflow-hidden shadow-md">
       <div className="h-8 flex items-center px-4 border-b border-border/30 bg-muted/20">
         <span className="font-mono text-[9px] tracking-wider uppercase text-primary font-medium">live transcript</span>
         <div className="ml-auto flex items-center gap-1">
@@ -84,7 +84,7 @@ function TranscriptVisual() {
             <span className="font-mono text-[9px] text-muted-foreground/40 tabular-nums pt-0.5 shrink-0">
               {line.time}
             </span>
-            <span className="text-[12px] leading-[1.5] text-card-foreground/75 font-serif flex-1">
+            <span className="text-[12px] leading-[1.5] text-card-foreground/75 flex-1">
               {line.text}
             </span>
             <div className="shrink-0 pt-1 flex items-center gap-1">
@@ -109,23 +109,23 @@ function IntelligenceVisual() {
         { label: "account", value: "****4782", color: "text-accent-foreground" },
         { label: "dob", value: "1983-01-15", color: "text-secondary" },
     ];
-    return (<div className="rounded-xl border-2 border-border bg-card overflow-hidden shadow-md">
+    return (<div className="border-2 border-border bg-card overflow-hidden shadow-md">
       <div className="h-8 flex items-center px-4 border-b border-border/30 bg-muted/20">
         <span className="font-mono text-[9px] tracking-wider uppercase text-primary font-medium">extracted intelligence</span>
       </div>
       <div className="p-4 space-y-4">
         
         <div className="grid grid-cols-2 gap-2">
-          {extractions.map((ext, i) => (<motion.div key={ext.label} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.3 }} className="border-2 border-border rounded-lg p-3 bg-background/50 neo-card">
+          {extractions.map((ext, i) => (<motion.div key={ext.label} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.3 }} className="border-2 border-border p-3 bg-background/50 neo-card">
               <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-muted-foreground/40 block">{ext.label}</span>
               <span className={`font-mono text-sm font-semibold ${ext.color} mt-1 block`}>{ext.value}</span>
             </motion.div>))}
         </div>
 
         
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5 }} className="border-2 border-border rounded-lg p-3 bg-background/50">
+        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5 }} className="border-2 border-border p-3 bg-background/50">
           <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-muted-foreground/40 block mb-1">detected obligation</span>
-          <p className="text-[12px] leading-[1.5] text-card-foreground/70 font-serif italic border-l-2 border-primary/40 pl-2">
+          <p className="text-[12px] leading-[1.5] text-card-foreground/70 italic border-l-2 border-primary/40 pl-2">
             &ldquo;Customer requests EMI plan setup for outstanding balance of ₹42,300 on account ending 4782&rdquo;
           </p>
         </motion.div>
@@ -177,7 +177,7 @@ export default function LandingPage() {
             </a>
           </nav>
 
-          <a href="/app" className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-sm">
+          <a href="/app" className="inline-flex items-center gap-1.5 px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-sm">
             Launch App
           </a>
         </div>
@@ -218,17 +218,17 @@ export default function LandingPage() {
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Ready to understand your audio?
           </h2>
-          <p className="text-muted-foreground font-serif max-w-md mx-auto">
+          <p className="text-muted-foreground max-w-md mx-auto">
             Try the platform now. No sign-up required.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <a href="/app" className="inline-flex items-center gap-2 px-7 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all shadow-md neo-card">
+            <a href="/app" className="inline-flex items-center gap-2 px-7 py-3 bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all shadow-md neo-card">
               Launch Platform
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
               </svg>
             </a>
-            <a href="/get-started" className="inline-flex items-center gap-2 px-7 py-3 rounded-lg border-2 border-border text-foreground text-sm font-medium hover:bg-card/50 transition-colors">
+            <a href="/get-started" className="inline-flex items-center gap-2 px-7 py-3 border-2 border-border text-foreground text-sm font-medium hover:bg-card/50 transition-colors">
               Documentation
             </a>
           </div>

@@ -15,21 +15,28 @@ from translator import translate_transcription
 app = FastAPI(title="Audio Update Service")
 
 
-def load_intent_flagger_module() -> Any:
+def load_intent_flagger_module() -> Any | None:
     script_path = Path(__file__).resolve().with_name("intent-flagger.py")
     spec = spec_from_file_location("intent_flagger", script_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load intent flagger from {script_path}")
+        return None
 
     module = module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except (ImportError, Exception) as exc:
+        print(f"[warn] intent-flagger unavailable: {exc}")
+        return None
     return module
 
 
 INTENT_FLAGGER = load_intent_flagger_module()
 
 
-async def run_intent_flagger(translated_output: dict[str, Any]) -> dict[str, Any]:
+async def run_intent_flagger(translated_output: dict[str, Any]) -> dict[str, Any] | None:
+    if INTENT_FLAGGER is None:
+        return None
+
     with tempfile.NamedTemporaryFile(
         mode="w", delete=False, suffix=".json", encoding="utf-8"
     ) as temp_json:
@@ -111,3 +118,8 @@ async def audio_update(audio: UploadFile = File(...)):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -91,7 +91,7 @@ export type SchemaDisplayPathProps = HTMLAttributes<HTMLSpanElement>;
 export const SchemaDisplayPath = ({ className, children, ...props }: SchemaDisplayPathProps) => {
     const { path } = useContext(SchemaDisplayContext);
     const highlightedPath = path.replaceAll(/\{([^}]+)\}/g, '<span class="text-blue-600 dark:text-blue-400">{$1}</span>');
-    return (<span className={cn("font-mono text-sm", className)} dangerouslySetInnerHTML={{ __html: children ?? highlightedPath }} {...props}/>);
+    return (<span className={cn("font-mono text-sm", className)} dangerouslySetInnerHTML={{ __html: (typeof children === 'string' ? children : highlightedPath) }} {...props}/>);
 };
 export type SchemaDisplayDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 export const SchemaDisplayDescription = ({ className, children, ...props }: SchemaDisplayDescriptionProps) => {
