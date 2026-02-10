@@ -88,9 +88,27 @@ export interface JsonRenderNode {
     children?: JsonRenderNode[];
     on?: Record<string, unknown>;
 }
-export interface JsonRenderSpec {
+export interface JsonRenderTreeSpec {
     root: JsonRenderNode;
+    state?: Record<string, unknown>;
 }
+export interface JsonRenderFlatElement {
+    type: string;
+    props?: Record<string, unknown>;
+    children?: string[];
+    on?: Record<string, unknown>;
+    visible?: unknown;
+    repeat?: {
+        path: string;
+        key?: string;
+    };
+}
+export interface JsonRenderFlatSpec {
+    root: string;
+    elements: Record<string, JsonRenderFlatElement>;
+    state?: Record<string, unknown>;
+}
+export type JsonRenderSpec = JsonRenderTreeSpec | JsonRenderFlatSpec;
 export interface TranscriptionResult {
     recording_id: string;
     language: string;

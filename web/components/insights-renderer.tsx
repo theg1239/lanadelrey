@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, type ReactNode } from "react";
 import { defineCatalog } from "@json-render/core";
-import { defineRegistry, Renderer, schema } from "@json-render/react";
+import { JSONUIProvider, defineRegistry, Renderer, schema } from "@json-render/react";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -443,7 +443,9 @@ export function InsightsRenderer({ spec }: { spec: JsonRenderSpec }) {
                 Invalid insights UI spec returned by backend.
             </InsightsFallback>);
     }
-    return <Renderer spec={normalizedSpec as Parameters<typeof Renderer>[0]["spec"]} registry={registry} />;
+    return (<JSONUIProvider registry={registry} initialState={normalizedSpec.state}>
+            <Renderer spec={normalizedSpec as Parameters<typeof Renderer>[0]["spec"]} registry={registry} />
+        </JSONUIProvider>);
 }
 
 export function InsightsFallback({ children }: { children?: ReactNode }) {
