@@ -32,8 +32,11 @@ export function InsightsPanel({ insights }: InsightsPanelProps) {
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-primary"/>
                 <span className="font-mono text-sm font-semibold text-foreground">
-                  {insights.intent.replace(/_/g, " ")}
+                  {insights.primary_intent.replace(/_/g, " ")}
                 </span>
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {(insights.intent_confidence * 100).toFixed(0)}%
+                </Badge>
               </div>
             </CardContent>
           </Card>

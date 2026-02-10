@@ -5,6 +5,7 @@ import { cn, formatMs, formatFileSize, confidenceColor } from "@/lib/utils";
 import { transcribeAudio } from "@/lib/api";
 import type { TranscriptionResult, UploadStatus, Segment } from "@/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InsightsFallback, InsightsRenderer } from "@/components/insights-renderer";
 function seeded(n: number) {
     const x = Math.sin(n * 9301 + 49297) * 49297;
     return x - Math.floor(x);
@@ -166,7 +167,7 @@ export default function AppPage() {
     const [result, setResult] = useState<TranscriptionResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [activeSegment, setActiveSegment] = useState<number | null>(null);
-    const [activeTab, setActiveTab] = useState<"transcript" | "entities" | "json">("transcript");
+    const [activeTab, setActiveTab] = useState<"transcript" | "insights" | "json">("transcript");
     const [copied, setCopied] = useState(false);
     const handleFile = useCallback(async (f: File) => {
         setFile(f);
@@ -249,9 +250,9 @@ export default function AppPage() {
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                         
                         {hasResult && (<div className="shrink-0 h-10 flex items-center gap-0 border-b border-border/30 px-1 bg-card/10">
-                                {(["transcript", "json"] as const).map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={cn("h-full px-4 font-mono text-[11px] tracking-wider uppercase transition-colors relative font-medium", activeTab === tab
-                    ? "text-foreground"
-                    : "text-muted-foreground/40 hover:text-muted-foreground/70")}>
+                                {(["transcript", "insights", "json"] as const).map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={cn("h-full px-4 font-mono text-[11px] tracking-wider uppercase transition-colors relative font-medium", activeTab === tab
+                                    ? "text-foreground"
+                                    : "text-muted-foreground/40 hover:text-muted-foreground/70")}>
                                         {tab}
                                         {activeTab === tab && (<motion.div layoutId="left-tab" className="absolute bottom-0 left-2 right-2 h-[2px] bg-primary rounded-full" transition={{ type: "spring", stiffness: 400, damping: 30 }}/>)}
                                     </button>))}
@@ -290,6 +291,16 @@ export default function AppPage() {
                                         <button onClick={handleCopy} className="absolute top-3 right-3 font-mono text-[10px] tracking-wider uppercase text-muted-foreground/40 hover:text-foreground/60 border border-border px-3 py-1.5 rounded-md transition-colors bg-card/80 backdrop-blur-sm">
                                             {copied ? "copied ✓" : "copy"}
                                         </button>
+                                    </motion.div>)}
+
+                                {hasResult && activeTab === "insights" && (<motion.div key="insights" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+                                        <ScrollArea className="h-full">
+                                            <div className="p-5">
+                                                {result.ui_spec ? (<InsightsRenderer spec={result.ui_spec} />) : (<InsightsFallback>
+                                                        No insights spec returned yet.
+                                                    </InsightsFallback>)}
+                                            </div>
+                                        </ScrollArea>
                                     </motion.div>)}
                             </AnimatePresence>
                         </div>
@@ -402,12 +413,12 @@ export default function AppPage() {
                                         </div>
 
                                         
-                                        {result.insights?.intent && (<div className="space-y-1.5">
+                                        {result.insights?.primary_intent && (<div className="space-y-1.5">
                                                 <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-muted-foreground/40 block font-medium">
                                                     intent
                                                 </span>
                                                 <span className="font-mono text-xs text-primary font-semibold">
-                                                    {result.insights.intent.replace(/_/g, " ")}
+                                                    {result.insights.primary_intent.replace(/_/g, " ")}
                                                 </span>
                                             </div>)}
 
@@ -420,6 +431,34 @@ export default function AppPage() {
                                                     {result.insights.entities.map((e, i) => (<EntityPill key={i} type={e.type} value={String(e.value)} currency={e.currency}/>))}
                                                 </div>
                                             </div>)}
+
+                                        <div className="space-y-1.5">
+                                            <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-muted-foreground/40 block font-medium">
+                                                quality
+                                            </span>
+                                            <div className="space-y-1">
+                                                <p className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
+                                                    call {(result.insights.ingestion.call_quality_score * 100).toFixed(0)}% · noise {result.insights.ingestion.noise_level}
+                                                </p>
+                                                <p className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
+                                                    speakers {result.insights.ingestion.speaker_diarization.speaker_count} · tamper {result.insights.ingestion.tamper_replay_risk}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-muted-foreground/40 block font-medium">
+                                                review
+                                            </span>
+                                            <div className="space-y-1">
+                                                <p className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
+                                                    {result.insights.review.needs_human_review ? "human review required" : "auto pass"}
+                                                </p>
+                                                {result.insights.review.review_reasons.slice(0, 2).map((reason, i) => (<p key={i} className="text-[10px] leading-[1.5] text-foreground/55 font-serif italic pl-2 border-l-2 border-border/60">
+                                                        {reason}
+                                                    </p>))}
+                                            </div>
+                                        </div>
 
                                         
                                         {result.insights?.obligations?.length > 0 && (<div className="space-y-1.5">

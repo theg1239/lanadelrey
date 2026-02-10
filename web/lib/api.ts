@@ -1,4 +1,4 @@
-import type { TranscriptionResult } from "./types";
+import type { Insights, JsonRenderSpec, TranscriptionResult } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const DEFAULT_CONFIDENCE = 0.9;
@@ -9,6 +9,7 @@ type FastApiTranscriptEntry = {
     start_time_seconds?: number;
     end_time_seconds?: number;
     confidence?: number;
+    speaker_id?: string | number;
 };
 
 type FastApiResponse = {
@@ -32,6 +33,8 @@ type FastApiResponse = {
         text: string;
         confidence?: number;
     }>;
+    insights?: Insights;
+    ui_spec?: JsonRenderSpec;
 };
 
 const sanitizeText = (value: unknown): string => {
@@ -58,6 +61,7 @@ const buildSegmentsFromEntries = (entries?: FastApiTranscriptEntry[]) => {
                 end_ms: Math.round(end * 1000),
                 text,
                 confidence: typeof entry.confidence === "number" ? entry.confidence : DEFAULT_CONFIDENCE,
+                speaker: entry.speaker_id != null ? String(entry.speaker_id) : undefined,
             };
         })
         .filter((seg): seg is NonNullable<typeof seg> => Boolean(seg));
@@ -91,6 +95,53 @@ const buildSegmentsFromTimestamps = (timestamps?: FastApiResponse["timestamps"])
     return segments;
 };
 
+const emptyInsights = (): Insights => ({
+    summary: "",
+    primary_intent: "",
+    intent_confidence: 0,
+    secondary_intents: [],
+    entities: [],
+    obligations: [],
+    regulatory_flags: [],
+    risk_level: "low",
+    sentiment: "neutral",
+    emotions: [],
+    pii_detected: false,
+    action_items: [],
+    ingestion: {
+        detected_language: "unknown",
+        language_confidence: 0,
+        noise_level: "unknown",
+        call_quality_score: 0,
+        speaker_diarization: {
+            speaker_count: 0,
+            speaker_labels: [],
+        },
+        tamper_replay_risk: "unknown",
+        ingest_flags: [],
+    },
+    transcription: {
+        asr_summary: "",
+        transcript_language: "unknown",
+        multilingual_switching: false,
+        asr_confidence: 0,
+        domain_terms: [],
+        profanity_terms: [],
+        pii_items: [],
+    },
+    understanding: {
+        financial_entity_layer_count: 0,
+        obligation_count: 0,
+        emotion_stress_markers: [],
+        regulatory_phrase_count: 0,
+    },
+    review: {
+        needs_human_review: false,
+        review_reasons: [],
+        correction_queue: [],
+    },
+});
+
 const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult => {
     if (Array.isArray(data.segments) && data.segments.length > 0) {
         return {
@@ -107,7 +158,8 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
                 confidence:
                     typeof seg.confidence === "number" ? seg.confidence : DEFAULT_CONFIDENCE,
             })),
-            insights: { intent: "", entities: [], obligations: [] },
+            insights: data.insights ?? emptyInsights(),
+            ui_spec: data.ui_spec,
         };
     }
 
@@ -152,7 +204,8 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
         language: String(data.language_code ?? data.language ?? "unknown"),
         duration_s,
         segments,
-        insights: { intent: "", entities: [], obligations: [] },
+        insights: data.insights ?? emptyInsights(),
+        ui_spec: data.ui_spec,
     };
 };
 

@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from insights import generate_insights
 from transcriber import transcribe_audio_file
 from translator import translate_transcription
 
@@ -47,7 +48,11 @@ async def audio_update(audio: UploadFile = File(...)):
             transcribe_output,
             source_lang=source_language,
         )
-        return translated_output
+        insights_payload = generate_insights(translated_output)
+        response = dict(translated_output)
+        response["insights"] = insights_payload.get("insights")
+        response["ui_spec"] = insights_payload.get("ui_spec")
+        return response
     except HTTPException:
         raise
     except Exception as exc:
