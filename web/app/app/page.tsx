@@ -87,6 +87,10 @@ function SegRow({ seg, index, isActive, onClick, }: {
     isActive: boolean;
     onClick: () => void;
 }) {
+    const primaryText = seg.translated_text ?? seg.text;
+    const originalText = seg.original_text && seg.original_text !== primaryText
+        ? seg.original_text
+        : null;
     return (<button type="button" onClick={onClick} className={cn("group w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors", "hover:bg-card/40", isActive && "bg-primary/[0.06] border-l-2 border-primary")}>
             
             <div className="shrink-0 w-16 pt-0.5">
@@ -99,9 +103,20 @@ function SegRow({ seg, index, isActive, onClick, }: {
             </div>
 
             
-            <span className="flex-1 text-[13px] leading-[1.65] text-foreground/80 font-serif">
-                {seg.text}
-            </span>
+            <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-[13px] leading-[1.65] text-foreground/80 font-serif">
+                    {originalText && (<span className="font-mono text-[9px] tracking-wider uppercase text-muted-foreground/45 mr-2">
+                            english
+                        </span>)}
+                    {primaryText}
+                </p>
+                {originalText && (<p className="text-[12px] leading-[1.6] text-muted-foreground/75">
+                        <span className="font-mono text-[9px] tracking-wider uppercase text-muted-foreground/45 mr-2">
+                            original
+                        </span>
+                        {originalText}
+                    </p>)}
+            </div>
 
             
             {seg.confidence != null && (<div className="shrink-0 pt-1.5 flex items-center gap-1.5">

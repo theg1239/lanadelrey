@@ -32,6 +32,8 @@ type FastApiResponse = {
         end_ms: number;
         text: string;
         confidence?: number;
+        translated_text?: string;
+        original_text?: string;
     }>;
     insights?: Insights;
     ui_spec?: JsonRenderSpec;
@@ -52,14 +54,21 @@ const buildSegmentsFromEntries = (entries?: FastApiTranscriptEntry[]) => {
     if (!Array.isArray(entries)) return [];
     return entries
         .map((entry) => {
-            const text = sanitizeText(entry.transcript_english ?? entry.transcript ?? "");
-            if (!isMeaningful(text)) return null;
+            const translatedText = sanitizeText(entry.transcript_english ?? "");
+            const originalText = sanitizeText(entry.transcript ?? "");
+            const primaryText = isMeaningful(translatedText) ? translatedText : originalText;
+            if (!isMeaningful(primaryText)) return null;
             const start = typeof entry.start_time_seconds === "number" ? entry.start_time_seconds : 0;
             const end = typeof entry.end_time_seconds === "number" ? entry.end_time_seconds : start;
             return {
                 start_ms: Math.round(start * 1000),
                 end_ms: Math.round(end * 1000),
-                text,
+                text: primaryText,
+                translated_text: isMeaningful(translatedText) ? translatedText : undefined,
+                original_text:
+                    isMeaningful(originalText) && originalText !== primaryText
+                        ? originalText
+                        : undefined,
                 confidence: typeof entry.confidence === "number" ? entry.confidence : DEFAULT_CONFIDENCE,
                 speaker: entry.speaker_id != null ? String(entry.speaker_id) : undefined,
             };
@@ -70,7 +79,7 @@ const buildSegmentsFromEntries = (entries?: FastApiTranscriptEntry[]) => {
 const buildSegmentsFromTimestamps = (timestamps?: FastApiResponse["timestamps"]) => {
     if (!timestamps) return [];
     const wordsEnglish = Array.isArray(timestamps.words_english) ? timestamps.words_english : [];
-    const words = wordsEnglish.length > 0 ? wordsEnglish : Array.isArray(timestamps.words) ? timestamps.words : [];
+    const wordsOriginal = Array.isArray(timestamps.words) ? timestamps.words : [];
     const starts = Array.isArray(timestamps.start_time_seconds)
         ? timestamps.start_time_seconds
         : [];
@@ -79,15 +88,23 @@ const buildSegmentsFromTimestamps = (timestamps?: FastApiResponse["timestamps"])
         : [];
 
     const segments = [] as TranscriptionResult["segments"];
-    for (let i = 0; i < words.length; i += 1) {
-        const text = sanitizeText(words[i]);
-        if (!isMeaningful(text)) continue;
+    const totalWords = Math.max(wordsEnglish.length, wordsOriginal.length);
+    for (let i = 0; i < totalWords; i += 1) {
+        const translatedText = sanitizeText(wordsEnglish[i] ?? "");
+        const originalText = sanitizeText(wordsOriginal[i] ?? "");
+        const primaryText = isMeaningful(translatedText) ? translatedText : originalText;
+        if (!isMeaningful(primaryText)) continue;
         const start = typeof starts[i] === "number" ? starts[i] : 0;
         const end = typeof ends[i] === "number" ? ends[i] : start;
         segments.push({
             start_ms: Math.round(start * 1000),
             end_ms: Math.round(end * 1000),
-            text,
+            text: primaryText,
+            translated_text: isMeaningful(translatedText) ? translatedText : undefined,
+            original_text:
+                isMeaningful(originalText) && originalText !== primaryText
+                    ? originalText
+                    : undefined,
             confidence: DEFAULT_CONFIDENCE,
         });
     }
@@ -151,13 +168,26 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
                 typeof data.duration_s === "number"
                     ? data.duration_s
                     : Math.max(...data.segments.map((seg) => seg.end_ms), 0) / 1000,
-            segments: data.segments.map((seg) => ({
-                start_ms: seg.start_ms,
-                end_ms: seg.end_ms,
-                text: sanitizeText(seg.text),
-                confidence:
-                    typeof seg.confidence === "number" ? seg.confidence : DEFAULT_CONFIDENCE,
-            })),
+            segments: data.segments.map((seg) => {
+                const translatedText = sanitizeText(seg.translated_text ?? "");
+                const originalText = sanitizeText(seg.original_text ?? "");
+                const rawText = sanitizeText(seg.text);
+                const primaryText = isMeaningful(translatedText)
+                    ? translatedText
+                    : (isMeaningful(rawText) ? rawText : originalText);
+                return {
+                    start_ms: seg.start_ms,
+                    end_ms: seg.end_ms,
+                    text: primaryText,
+                    translated_text: isMeaningful(translatedText) ? translatedText : undefined,
+                    original_text:
+                        isMeaningful(originalText) && originalText !== primaryText
+                            ? originalText
+                            : undefined,
+                    confidence:
+                        typeof seg.confidence === "number" ? seg.confidence : DEFAULT_CONFIDENCE,
+                };
+            }),
             insights: data.insights ?? emptyInsights(),
             ui_spec: data.ui_spec,
         };
@@ -188,6 +218,11 @@ const normalizeFastApiResponse = (data: FastApiResponse): TranscriptionResult =>
                     start_ms: 0,
                     end_ms: 0,
                     text: transcriptFallback,
+                    translated_text: isMeaningful(translatedTranscript) ? translatedTranscript : undefined,
+                    original_text:
+                        isMeaningful(originalTranscript) && originalTranscript !== transcriptFallback
+                            ? originalTranscript
+                            : undefined,
                     confidence: DEFAULT_CONFIDENCE,
                 },
             ]

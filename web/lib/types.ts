@@ -4,18 +4,20 @@ export interface Segment {
     text: string;
     confidence: number;
     speaker?: string;
+    translated_text?: string | null;
+    original_text?: string | null;
 }
 export interface Entity {
     type: string;
     value: string;
-    currency?: string;
-    confidence?: number;
+    currency?: string | null;
+    confidence?: number | null;
 }
 export interface Obligation {
     text: string;
-    speaker?: string;
-    due_date?: string;
-    confidence?: number;
+    speaker?: string | null;
+    due_date?: string | null;
+    confidence?: number | null;
 }
 export interface EmotionScore {
     label: string;

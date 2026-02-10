@@ -16,21 +16,21 @@ type RendererComponentProps<T> = {
 type StatItem = {
     label: string;
     value: string;
-    tone?: string;
+    tone?: string | null;
 };
 
 type EntityRow = {
     type: string;
     value: string;
-    currency?: string;
-    confidence?: number;
+    currency?: string | null;
+    confidence?: number | null;
 };
 
 type ObligationRow = {
     text: string;
-    speaker?: string;
-    due_date?: string;
-    confidence?: number;
+    speaker?: string | null;
+    due_date?: string | null;
+    confidence?: number | null;
 };
 
 type ReviewQueueRow = {
@@ -45,14 +45,14 @@ const catalog = defineCatalog(schema, {
         InsightsLayout: {
             props: z.object({
                 title: z.string(),
-                subtitle: z.string().optional(),
+                subtitle: z.string().nullable(),
             }),
             description: "Page layout for insights",
         },
         Section: {
             props: z.object({
                 title: z.string(),
-                description: z.string().optional(),
+                description: z.string().nullable(),
             }),
             description: "Section wrapper",
         },
@@ -69,7 +69,7 @@ const catalog = defineCatalog(schema, {
                     z.object({
                         label: z.string(),
                         value: z.string(),
-                        tone: z.string().optional(),
+                        tone: z.string().nullable(),
                     })
                 ),
             }),
@@ -82,8 +82,8 @@ const catalog = defineCatalog(schema, {
                     z.object({
                         type: z.string(),
                         value: z.string(),
-                        currency: z.string().optional(),
-                        confidence: z.number().optional(),
+                        currency: z.string().nullable(),
+                        confidence: z.number().nullable(),
                     })
                 ),
             }),
@@ -95,9 +95,9 @@ const catalog = defineCatalog(schema, {
                 items: z.array(
                     z.object({
                         text: z.string(),
-                        speaker: z.string().optional(),
-                        due_date: z.string().optional(),
-                        confidence: z.number().optional(),
+                        speaker: z.string().nullable(),
+                        due_date: z.string().nullable(),
+                        confidence: z.number().nullable(),
                     })
                 ),
             }),
@@ -144,14 +144,14 @@ const catalog = defineCatalog(schema, {
 
 const { registry } = defineRegistry(catalog, {
     components: {
-        InsightsLayout: ({ props, children }: RendererComponentProps<{ title: string; subtitle?: string }>) => (<div className="space-y-4">
+        InsightsLayout: ({ props, children }: RendererComponentProps<{ title: string; subtitle?: string | null }>) => (<div className="space-y-4">
                 <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-foreground">{props.title}</h3>
                     {props.subtitle && (<p className="text-xs text-muted-foreground">{props.subtitle}</p>)}
                 </div>
                 {children}
             </div>),
-        Section: ({ props, children }: RendererComponentProps<{ title: string; description?: string }>) => (<Card className="p-4 bg-card/20 border-border/60">
+        Section: ({ props, children }: RendererComponentProps<{ title: string; description?: string | null }>) => (<Card className="p-4 bg-card/20 border-border/60">
                 <div className="space-y-2">
                     <div>
                         <h4 className="text-xs font-mono tracking-wider uppercase text-muted-foreground/70">
