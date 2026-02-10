@@ -12,6 +12,7 @@ import type {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InsightsFallback, InsightsRenderer } from "@/components/insights-renderer";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { MinimalVoiceAgent } from "@/components/voice-agent/minimal-voice-agent";
 
 type AppSection = "dashboard" | "library" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
@@ -403,6 +404,9 @@ function LeftSidebar({ activeSection, onSelect }: {
 
 
         <div className="p-3 border-t border-border/30">
+            <a href="/voice" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors">
+                Voice agent
+            </a>
             <a href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors">
                 ← Back to home
             </a>
@@ -972,6 +976,9 @@ export default function AppPage() {
                     </ScrollArea>
                 </div>
             </div>
+
+            {/* Minimal Voice Agent — self-positions in corner, animates to center */}
+            <MinimalVoiceAgent />
         </div>
     </div>);
 }
