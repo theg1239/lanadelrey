@@ -111,6 +111,12 @@ export interface JsonRenderFlatSpec {
     state?: Record<string, unknown>;
 }
 export type JsonRenderSpec = JsonRenderTreeSpec | JsonRenderFlatSpec;
+export interface LibraryAudioItem {
+    name: string;
+    url: string;
+    size: number;
+    modifiedAt: string;
+}
 export interface TranscriptionResult {
     recording_id: string;
     language: string;

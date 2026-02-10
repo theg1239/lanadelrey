@@ -1,4 +1,9 @@
-import type { Insights, JsonRenderSpec, TranscriptionResult } from "./types";
+import type {
+    Insights,
+    JsonRenderSpec,
+    LibraryAudioItem,
+    TranscriptionResult,
+} from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -37,6 +42,10 @@ type FastApiResponse = {
     }>;
     insights?: Insights;
     ui_spec?: JsonRenderSpec;
+};
+
+type LibraryAudioResponse = {
+    items?: LibraryAudioItem[];
 };
 
 const normalizeConfidence = (value: unknown): number | undefined => {
@@ -295,4 +304,30 @@ export async function transcribeAudio(
     onProgress?.("done");
     const payload = (await res.json()) as FastApiResponse;
     return normalizeFastApiResponse(payload);
+}
+
+export async function listLibraryAudio(): Promise<LibraryAudioItem[]> {
+    const res = await fetch("/api/library-audio", {
+        method: "GET",
+        cache: "no-store",
+    });
+    if (!res.ok) {
+        throw new Error(`Failed to load library audio (${res.status})`);
+    }
+    const payload = (await res.json()) as LibraryAudioResponse;
+    return Array.isArray(payload.items) ? payload.items : [];
+}
+
+export async function fetchPublicAudioFile(item: Pick<LibraryAudioItem, "url" | "name">): Promise<File> {
+    const res = await fetch(item.url, {
+        method: "GET",
+        cache: "no-store",
+    });
+    if (!res.ok) {
+        throw new Error(`Failed to load ${item.name} (${res.status})`);
+    }
+    const blob = await res.blob();
+    return new File([blob], item.name, {
+        type: blob.type || "audio/m4a",
+    });
 }
