@@ -173,7 +173,7 @@ const { registry } = defineRegistry(catalog, {
                 </p>
             </Card>),
         StatGrid: ({ props }: RendererComponentProps<{ items: StatItem[] }>) => (<div className="grid grid-cols-2 gap-2">
-                {props.items.map((item: StatItem, idx: number) => (<div key={`${item.label}-${idx}`} className={cn("rounded-lg border border-border/60 bg-background/40 p-3", item.tone === "primary" && "border-primary/30")}>
+                {(Array.isArray(props.items) ? props.items : []).map((item: StatItem, idx: number) => (<div key={`${item.label}-${idx}`} className={cn("rounded-lg border border-border/60 bg-background/40 p-3", item.tone === "primary" && "border-primary/30")}>
                         <p className="text-[10px] font-mono tracking-wider uppercase text-muted-foreground/60">
                             {item.label}
                         </p>
@@ -185,7 +185,7 @@ const { registry } = defineRegistry(catalog, {
                     {props.title}
                 </p>
                 <div className="space-y-1">
-                    {props.rows.map((row: EntityRow, idx: number) => (<div key={`${row.type}-${idx}`} className="flex items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
+                    {(Array.isArray(props.rows) ? props.rows : []).map((row: EntityRow, idx: number) => (<div key={`${row.type}-${idx}`} className="flex items-center justify-between rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
                             <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider">
                                 {row.type}
                             </span>
@@ -205,7 +205,7 @@ const { registry } = defineRegistry(catalog, {
                     {props.title}
                 </p>
                 <div className="space-y-2">
-                    {props.items.map((item: ObligationRow, idx: number) => (<div key={`${item.text}-${idx}`} className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
+                    {(Array.isArray(props.items) ? props.items : []).map((item: ObligationRow, idx: number) => (<div key={`${item.text}-${idx}`} className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
                             <p className="text-xs text-foreground/80 font-serif leading-relaxed">
                                 {item.text}
                             </p>
@@ -224,7 +224,7 @@ const { registry } = defineRegistry(catalog, {
                     {props.title}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                    {props.tags.map((tag: string, idx: number) => (<Badge key={`${tag}-${idx}`} variant="secondary" className="text-[9px] font-mono uppercase tracking-widest">
+                    {(Array.isArray(props.tags) ? props.tags : []).map((tag: string, idx: number) => (<Badge key={`${tag}-${idx}`} variant="secondary" className="text-[9px] font-mono uppercase tracking-widest">
                             {tag}
                         </Badge>))}
                 </div>
@@ -234,7 +234,7 @@ const { registry } = defineRegistry(catalog, {
                     {props.title}
                 </p>
                 <ul className="space-y-1">
-                    {props.items.map((item: string, idx: number) => (<li key={`${item}-${idx}`} className="text-xs text-foreground/70 flex items-start gap-2">
+                    {(Array.isArray(props.items) ? props.items : []).map((item: string, idx: number) => (<li key={`${item}-${idx}`} className="text-xs text-foreground/70 flex items-start gap-2">
                             <span className="mt-1.5 w-1 h-1 rounded-full bg-primary/60 shrink-0"/>
                             {item}
                         </li>))}
@@ -258,7 +258,7 @@ const { registry } = defineRegistry(catalog, {
                     {props.title}
                 </p>
                 <div className="space-y-2">
-                    {props.items.map((item: ReviewQueueRow, idx: number) => (<Card key={`${item.field}-${idx}`} className="p-3 bg-background/40 border-border/60">
+                    {(Array.isArray(props.items) ? props.items : []).map((item: ReviewQueueRow, idx: number) => (<Card key={`${item.field}-${idx}`} className="p-3 bg-background/40 border-border/60">
                             <div className="space-y-1.5">
                                 <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
                                     {item.field}
