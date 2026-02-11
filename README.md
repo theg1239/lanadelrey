@@ -15,7 +15,7 @@ Delrey is an end-to-end audio intelligence platform built for the fintech domain
 | **Transcribe** | Domain-tuned ASR via [Sarvam AI](https://www.sarvam.ai/) (`saaras:v3`) with per-word timestamps and speaker diarization. |
 | **Translate** | Automatic source-language detection (script-level inference for Tamil, Kannada, etc.) and translation to English via Sarvam `mayura:v1`. |
 | **Intent Flagging** | Classifies each utterance (Agreement, Conditional Agreement, Delay Request, Refusal, etc.) using [Backboard](https://backboard.com/) stateful assistants. |
-| **Insights & UI** | GPT-4o-mini generates structured insights (entities, obligations, sentiment, summary) and a JSON-Render `ui_spec` for dynamic, data-driven UI cards. |
+| **Insights & UI** | GPT-5-mini generates structured insights (entities, obligations, sentiment, summary) and a JSON-Render `ui_spec` for dynamic, data-driven UI cards. |
 
 ---
 
@@ -30,7 +30,7 @@ Delrey is an end-to-end audio intelligence platform built for the fintech domain
 └──────────────┘        │   Sarvam AI     Sarvam AI    Backboard   │
                         │       └──────┬───────┘           │       │
                         │              ▼                   │       │
-                        │     insights (OpenAI GPT-4o)◁────┘       │
+                        │     insights (OpenAI GPT-5.2)◁────┘       │
                         │         ▼                                │
                         │     ui_spec (JSON-Render)                │
                         └──────────────────────────────────────────┘
