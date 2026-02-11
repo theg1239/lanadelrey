@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/audio/update \
 ## Key Technologies
 
 - **[Sarvam AI](https://www.sarvam.ai/)**: Multilingual speech-to-text & translation, optimized for Indian languages
-- **[OpenAI GPT-4o-mini](https://openai.com/)**: Structured insight extraction with JSON-Render UI generation
+- **[OpenAI GPT-5-mini](https://openai.com/)**: Structured insight extraction with JSON-Render UI generation
 - **[Backboard](https://backboard.com/)**: Stateful AI assistants for per-utterance intent classification
 - **[Next.js 16](https://nextjs.org/)** + **React 19**: App router, server components, streaming
 - **[JSON-Render](https://json-render.com/)**: Dynamic, schema-driven UI cards from LLM output
