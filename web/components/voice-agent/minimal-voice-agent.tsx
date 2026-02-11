@@ -61,6 +61,7 @@ type MinimalVoiceAgentProps = {
   dockedLeft?: number;
   dockedRight?: number;
   dockedBottom?: number;
+  centered?: boolean;
   preloadedRecording?: ActiveRecording | null;
 };
 
@@ -105,6 +106,7 @@ export function MinimalVoiceAgent({
   dockedLeft = 60,
   dockedRight,
   dockedBottom = 20,
+  centered = false,
   preloadedRecording = null,
 }: MinimalVoiceAgentProps) {
   const [agentState, setAgentState] = useState<AgentState>(null);
@@ -641,11 +643,13 @@ export function MinimalVoiceAgent({
       <div
         className="fixed z-[52] flex flex-col items-center gap-2 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{
-          bottom: isActive ? "50%" : `${dockedBottom}px`,
-          ...(isActive
+          bottom: isActive || centered ? "50%" : `${dockedBottom}px`,
+          ...((isActive
             ? { left: "50%" }
-            : (dockedRight != null ? { right: `${dockedRight}px` } : { left: `${dockedLeft}px` })),
-          transform: isActive ? "translate(-50%, 50%)" : "translate(0, 0)",
+            : centered
+              ? { left: "calc(50% + var(--sidebar-offset, 104px))" }
+              : (dockedRight != null ? { right: `${dockedRight}px` } : { left: `${dockedLeft}px` }))),
+          transform: isActive || centered ? "translate(-50%, 50%)" : "translate(0, 0)",
         }}
       >
         <button
@@ -664,8 +668,8 @@ export function MinimalVoiceAgent({
           <div
             className="bg-muted relative rounded-full p-0.5 shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
             style={{
-              width:  isActive ? 180 : 56,
-              height: isActive ? 180 : 56,
+              width:  isActive ? 180 : centered ? 120 : 56,
+              height: isActive ? 180 : centered ? 120 : 56,
             }}
           >
             <div className="bg-background h-full w-full overflow-hidden rounded-full shadow-[inset_0_0_12px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_0_12px_rgba(0,0,0,0.3)]">

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, Languages } from "lucide-react";
 import { cn, formatMs, formatFileSize, confidenceColor } from "@/lib/utils";
@@ -11,6 +11,14 @@ import type {
     UploadStatus,
 } from "@/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { InsightsFallback, InsightsRenderer } from "@/components/insights-renderer";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
@@ -21,12 +29,79 @@ import {
 
 type AppSection = "dashboard" | "library" | "voice" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
+type ResultTab = "transcript" | "insights" | "json";
+type PlaybackRate = "0.75" | "1" | "1.25" | "1.5";
+type AppSettings = {
+    showDashboardOrb: boolean;
+    dashboardOrbOffset: number;
+    voiceOrbOffset: number;
+    defaultAnalysisTab: ResultTab;
+    transcriptPlaybackRate: PlaybackRate;
+    showNativeScriptCard: boolean;
+    showTranscriptAudioDock: boolean;
+    autoOpenDashboardAfterLibraryAnalyze: boolean;
+    autoSelectSegmentOnPlay: boolean;
+};
 
 const parseAppSection = (value: string | null): AppSection | null => {
     if (value === "dashboard" || value === "library" || value === "voice" || value === "settings") {
         return value;
     }
     return null;
+};
+const APP_SETTINGS_STORAGE_KEY = "geogood.app.settings.v1";
+const ANALYSIS_TABS: ResultTab[] = ["transcript", "insights", "json"];
+const PLAYBACK_RATES: PlaybackRate[] = ["0.75", "1", "1.25", "1.5"];
+const DEFAULT_APP_SETTINGS: AppSettings = {
+    showDashboardOrb: true,
+    dashboardOrbOffset: 116,
+    voiceOrbOffset: 260,
+    defaultAnalysisTab: "transcript",
+    transcriptPlaybackRate: "1",
+    showNativeScriptCard: true,
+    showTranscriptAudioDock: true,
+    autoOpenDashboardAfterLibraryAnalyze: true,
+    autoSelectSegmentOnPlay: true,
+};
+const clampValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const parseSettings = (value: unknown): AppSettings => {
+    if (!value || typeof value !== "object") {
+        return DEFAULT_APP_SETTINGS;
+    }
+    const raw = value as Record<string, unknown>;
+    const tab = ANALYSIS_TABS.includes(raw.defaultAnalysisTab as ResultTab)
+        ? (raw.defaultAnalysisTab as ResultTab)
+        : DEFAULT_APP_SETTINGS.defaultAnalysisTab;
+    const rate = PLAYBACK_RATES.includes(raw.transcriptPlaybackRate as PlaybackRate)
+        ? (raw.transcriptPlaybackRate as PlaybackRate)
+        : DEFAULT_APP_SETTINGS.transcriptPlaybackRate;
+    const dashboardOrbOffset = typeof raw.dashboardOrbOffset === "number"
+        ? clampValue(Math.round(raw.dashboardOrbOffset), 8, 280)
+        : DEFAULT_APP_SETTINGS.dashboardOrbOffset;
+    const voiceOrbOffset = typeof raw.voiceOrbOffset === "number"
+        ? clampValue(Math.round(raw.voiceOrbOffset), 220, 420)
+        : DEFAULT_APP_SETTINGS.voiceOrbOffset;
+    return {
+        showDashboardOrb: typeof raw.showDashboardOrb === "boolean"
+            ? raw.showDashboardOrb
+            : DEFAULT_APP_SETTINGS.showDashboardOrb,
+        dashboardOrbOffset,
+        voiceOrbOffset,
+        defaultAnalysisTab: tab,
+        transcriptPlaybackRate: rate,
+        showNativeScriptCard: typeof raw.showNativeScriptCard === "boolean"
+            ? raw.showNativeScriptCard
+            : DEFAULT_APP_SETTINGS.showNativeScriptCard,
+        showTranscriptAudioDock: typeof raw.showTranscriptAudioDock === "boolean"
+            ? raw.showTranscriptAudioDock
+            : DEFAULT_APP_SETTINGS.showTranscriptAudioDock,
+        autoOpenDashboardAfterLibraryAnalyze: typeof raw.autoOpenDashboardAfterLibraryAnalyze === "boolean"
+            ? raw.autoOpenDashboardAfterLibraryAnalyze
+            : DEFAULT_APP_SETTINGS.autoOpenDashboardAfterLibraryAnalyze,
+        autoSelectSegmentOnPlay: typeof raw.autoSelectSegmentOnPlay === "boolean"
+            ? raw.autoSelectSegmentOnPlay
+            : DEFAULT_APP_SETTINGS.autoSelectSegmentOnPlay,
+    };
 };
 
 const PIPELINE_STAGES = [
@@ -349,13 +424,14 @@ const detectScriptStyle = (text: string): ScriptStyle => {
         toneClass: "border-border/40 bg-muted/20 text-muted-foreground/80",
     };
 };
-function SegRow({ seg, index, isActive, isPlaying, segmentProgress, hasAudio, onClick, onPlaySegment, }: {
+function SegRow({ seg, index, isActive, isPlaying, segmentProgress, hasAudio, showNativeScript, onClick, onPlaySegment, }: {
     seg: Segment;
     index: number;
     isActive: boolean;
     isPlaying: boolean;
     segmentProgress: number;
     hasAudio: boolean;
+    showNativeScript: boolean;
     onClick: () => void;
     onPlaySegment: () => void;
 }) {
@@ -402,20 +478,22 @@ function SegRow({ seg, index, isActive, isPlaying, segmentProgress, hasAudio, on
                     </p>
                 </div>
 
-                <div className={cn("rounded-lg border px-3 py-2.5", scriptStyle.toneClass)}>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <p className="font-mono text-[9px] tracking-[0.16em] uppercase opacity-80 inline-flex items-center gap-1">
-                            <Languages className="h-3 w-3" />
-                            Native Script
+                {showNativeScript && (
+                    <div className={cn("rounded-lg border px-3 py-2.5", scriptStyle.toneClass)}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="font-mono text-[9px] tracking-[0.16em] uppercase opacity-80 inline-flex items-center gap-1">
+                                <Languages className="h-3 w-3" />
+                                Native Script
+                            </p>
+                            <span className="font-mono text-[9px] tracking-wide uppercase opacity-75">
+                                {scriptStyle.label}
+                            </span>
+                        </div>
+                        <p dir={scriptStyle.direction ?? "ltr"} style={{ fontFamily: scriptStyle.fontFamily }} className="text-[17px] leading-[1.9] tracking-[0.01em] text-foreground/90 break-words">
+                            {nativeText}
                         </p>
-                        <span className="font-mono text-[9px] tracking-wide uppercase opacity-75">
-                            {scriptStyle.label}
-                        </span>
                     </div>
-                    <p dir={scriptStyle.direction ?? "ltr"} style={{ fontFamily: scriptStyle.fontFamily }} className="text-[17px] leading-[1.9] tracking-[0.01em] text-foreground/90 break-words">
-                        {nativeText}
-                    </p>
-                </div>
+                )}
             </div>
 
             {seg.confidence != null && (<div className="shrink-0 pt-1.5 flex items-center gap-1.5">
@@ -560,88 +638,231 @@ function LeftSidebar({ activeSection, onSelect }: {
     </div>);
 }
 
-function VoicePanel({ items, status, error }: {
-    items: LibraryAudioItem[];
-    status: LibraryStatus;
-    error: string | null;
+function VoicePanel() {
+    return (<div className="h-full flex flex-col items-center justify-center">
+        <p className="text-[11px] text-muted-foreground/40 tracking-wide">
+            tap the orb to start
+        </p>
+    </div>);
+}
+function SettingRow({
+    title,
+    description,
+    control,
+}: {
+    title: string;
+    description: string;
+    control: ReactNode;
 }) {
-    return (<div className="h-full overflow-hidden">
-        <ScrollArea className="h-full">
-            <div className="p-6 space-y-6">
-
-                <div className="space-y-2">
-                    <p className="text-sm font-semibold text-foreground/85">
-                        Voice Agent
-                    </p>
-                    <p className="text-[12px] leading-relaxed text-muted-foreground/70 max-w-xl">
-                        Tap the orb to record. Say <span className="font-mono text-foreground/80">recording 3</span>{" "}
-                        to analyze the 3rd file in the library (for example{" "}
-                        <span className="font-mono text-foreground/80">Sample3</span>).
-                        Then ask questions like{" "}
-                        <span className="font-mono text-foreground/80">what did they agree to?</span>{" "}
-                        or{" "}
-                        <span className="font-mono text-foreground/80">summarize this call</span>.
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/50">
-                        After analysis, the agent shows the active recording on the orb. Click it to view the transcript and key points.
-                    </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                        "recording 3",
-                        "analyze Sample10",
-                        "what is this call about?",
-                        "what did they agree to?",
-                    ].map((ex) => (<div key={ex} className="border border-border/40 bg-card/20 px-3 py-2 rounded-lg">
-                        <p className="font-mono text-[11px] text-foreground/80">
-                            {ex}
+    return (
+        <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/25 last:border-b-0">
+            <div className="space-y-1 min-w-0">
+                <p className="text-[12px] font-semibold text-foreground/85">{title}</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground/60">{description}</p>
+            </div>
+            <div className="shrink-0 pt-0.5">{control}</div>
+        </div>
+    );
+}
+function SettingsPanel({
+    settings,
+    onChange,
+    onReset,
+}: {
+    settings: AppSettings;
+    onChange: (patch: Partial<AppSettings>) => void;
+    onReset: () => void;
+}) {
+    return (
+        <div className="h-full overflow-hidden">
+            <ScrollArea className="h-full">
+                <div className="p-6 space-y-6 max-w-5xl">
+                    <div className="space-y-2">
+                        <p className="text-sm font-semibold text-foreground/85">Experience Settings</p>
+                        <p className="text-[12px] leading-relaxed text-muted-foreground/70 max-w-2xl">
+                            Configure orb placement, transcript behavior, and analysis defaults. These preferences are saved locally in this browser.
                         </p>
-                    </div>))}
-                </div>
-
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-mono tracking-wider uppercase text-muted-foreground/50">
-                            Recording Library Index
-                        </p>
-                        <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums">
-                            {status === "ready" ? `${items.length} files` : status === "loading" ? "loading…" : ""}
-                        </span>
                     </div>
 
-                    {status === "error" && (
-                        <p className="text-[11px] text-destructive/80">
-                            {error ?? "Failed to load library"}
-                        </p>
-                    )}
-
-                    {status === "loading" && (
-                        <div className="border border-border/40 bg-card/20 rounded-lg p-4">
-                            <Shimmer as="p" className="font-mono text-[11px] tracking-wider uppercase" duration={1.6}>
-                                loading library…
-                            </Shimmer>
-                        </div>
-                    )}
-
-                    {status === "ready" && items.length > 0 && (
-                        <div className="border border-border/40 bg-card/10 rounded-lg overflow-hidden">
-                            <div className="divide-y divide-border/30">
-                                {items.map((it, i) => (<div key={it.url} className="flex items-center gap-3 px-4 py-2.5">
-                                    <span className="font-mono text-[10px] text-muted-foreground/50 tabular-nums w-10 shrink-0">
-                                        {String(i + 1).padStart(2, "0")}
+                    <div className="grid gap-5 xl:grid-cols-2">
+                        <section className="border border-border/40 bg-card/15 rounded-xl p-4 space-y-1">
+                            <p className="text-[10px] font-mono tracking-[0.16em] uppercase text-muted-foreground/50 mb-1">
+                                Voice Orb
+                            </p>
+                            <SettingRow
+                                title="Show orb on dashboard after analysis"
+                                description="Keep the orb available in dashboard view after a call is analyzed."
+                                control={(
+                                    <Switch
+                                        checked={settings.showDashboardOrb}
+                                        onCheckedChange={(checked) => onChange({ showDashboardOrb: checked })}
+                                    />
+                                )}
+                            />
+                            <div className="pt-3 pb-1">
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[12px] font-semibold text-foreground/85">Dashboard orb horizontal position</p>
+                                    <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">
+                                        {settings.dashboardOrbOffset}px
                                     </span>
-                                    <span className="text-[12px] text-foreground/80 break-all">
-                                        {it.name}
-                                    </span>
-                                </div>))}
+                                </div>
+                                <input
+                                    type="range"
+                                    min={8}
+                                    max={280}
+                                    step={2}
+                                    value={settings.dashboardOrbOffset}
+                                    onChange={(event) => {
+                                        onChange({
+                                            dashboardOrbOffset: clampValue(Number(event.target.value), 8, 280),
+                                        });
+                                    }}
+                                    className="w-full accent-primary"
+                                />
                             </div>
-                        </div>
-                    )}
+                            <div className="pt-3 pb-1">
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[12px] font-semibold text-foreground/85">Voice section orb horizontal position</p>
+                                    <span className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">
+                                        {settings.voiceOrbOffset}px
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min={220}
+                                    max={420}
+                                    step={2}
+                                    value={settings.voiceOrbOffset}
+                                    onChange={(event) => {
+                                        onChange({
+                                            voiceOrbOffset: clampValue(Number(event.target.value), 220, 420),
+                                        });
+                                    }}
+                                    className="w-full accent-primary"
+                                />
+                            </div>
+                        </section>
+
+                        <section className="border border-border/40 bg-card/15 rounded-xl p-4 space-y-1">
+                            <p className="text-[10px] font-mono tracking-[0.16em] uppercase text-muted-foreground/50 mb-1">
+                                Analysis Defaults
+                            </p>
+                            <div className="py-2.5 border-b border-border/25">
+                                <div className="flex items-center justify-between gap-4 mb-1">
+                                    <p className="text-[12px] font-semibold text-foreground/85">Default analysis tab</p>
+                                    <Select
+                                        value={settings.defaultAnalysisTab}
+                                        onValueChange={(value) => {
+                                            if (ANALYSIS_TABS.includes(value as ResultTab)) {
+                                                onChange({ defaultAnalysisTab: value as ResultTab });
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 w-[150px] text-[11px] font-mono">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="transcript">Transcript</SelectItem>
+                                            <SelectItem value="insights">Insights</SelectItem>
+                                            <SelectItem value="json">JSON</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <p className="text-[11px] leading-relaxed text-muted-foreground/60">
+                                    The tab opened first after a new analysis completes.
+                                </p>
+                            </div>
+                            <SettingRow
+                                title="Open dashboard when library analysis starts"
+                                description="Automatically jump to dashboard when you click Analyze from the library."
+                                control={(
+                                    <Switch
+                                        checked={settings.autoOpenDashboardAfterLibraryAnalyze}
+                                        onCheckedChange={(checked) => onChange({ autoOpenDashboardAfterLibraryAnalyze: checked })}
+                                    />
+                                )}
+                            />
+                            <SettingRow
+                                title="Auto focus played segment"
+                                description="When using segment play, select that segment in the detail panel."
+                                control={(
+                                    <Switch
+                                        checked={settings.autoSelectSegmentOnPlay}
+                                        onCheckedChange={(checked) => onChange({ autoSelectSegmentOnPlay: checked })}
+                                    />
+                                )}
+                            />
+                        </section>
+
+                        <section className="border border-border/40 bg-card/15 rounded-xl p-4 space-y-1 xl:col-span-2">
+                            <p className="text-[10px] font-mono tracking-[0.16em] uppercase text-muted-foreground/50 mb-1">
+                                Transcript Playback & Rendering
+                            </p>
+                            <div className="py-2.5 border-b border-border/25">
+                                <div className="flex items-center justify-between gap-4 mb-1">
+                                    <p className="text-[12px] font-semibold text-foreground/85">Segment playback speed</p>
+                                    <Select
+                                        value={settings.transcriptPlaybackRate}
+                                        onValueChange={(value) => {
+                                            if (PLAYBACK_RATES.includes(value as PlaybackRate)) {
+                                                onChange({ transcriptPlaybackRate: value as PlaybackRate });
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 w-[132px] text-[11px] font-mono">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0.75">0.75x</SelectItem>
+                                            <SelectItem value="1">1.00x</SelectItem>
+                                            <SelectItem value="1.25">1.25x</SelectItem>
+                                            <SelectItem value="1.5">1.50x</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <p className="text-[11px] leading-relaxed text-muted-foreground/60">
+                                    Applies to segment playback from transcript rows and the segment detail card.
+                                </p>
+                            </div>
+                            <SettingRow
+                                title="Show native script cards"
+                                description="Display each segment in original script style alongside English text."
+                                control={(
+                                    <Switch
+                                        checked={settings.showNativeScriptCard}
+                                        onCheckedChange={(checked) => onChange({ showNativeScriptCard: checked })}
+                                    />
+                                )}
+                            />
+                            <SettingRow
+                                title="Show transcript audio dock"
+                                description="Show the source-audio player at the top of transcript view."
+                                control={(
+                                    <Switch
+                                        checked={settings.showTranscriptAudioDock}
+                                        onCheckedChange={(checked) => onChange({ showTranscriptAudioDock: checked })}
+                                    />
+                                )}
+                            />
+                        </section>
+                    </div>
+
+                    <div className="border border-border/35 bg-card/10 rounded-lg p-3 flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-muted-foreground/65">
+                            Saved locally on this browser. Use reset to restore defaults.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={onReset}
+                            className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground/70 hover:text-foreground/80 border border-border/50 hover:border-primary/35 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                            reset defaults
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </ScrollArea>
-    </div>);
+            </ScrollArea>
+        </div>
+    );
 }
 export default function AppPage() {
     const initializedFromUrlRef = useRef(false);
@@ -656,12 +877,13 @@ export default function AppPage() {
     const [result, setResult] = useState<TranscriptionResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [activeSegment, setActiveSegment] = useState<number | null>(null);
-    const [activeTab, setActiveTab] = useState<"transcript" | "insights" | "json">("transcript");
+    const [activeTab, setActiveTab] = useState<ResultTab>("transcript");
     const [copied, setCopied] = useState(false);
     const [libraryStatus, setLibraryStatus] = useState<LibraryStatus>("idle");
     const [libraryItems, setLibraryItems] = useState<LibraryAudioItem[]>([]);
     const [libraryError, setLibraryError] = useState<string | null>(null);
     const [activeLibraryItemUrl, setActiveLibraryItemUrl] = useState<string | null>(null);
+    const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
 
     useEffect(() => {
         if (initializedFromUrlRef.current) return;
@@ -670,6 +892,29 @@ export default function AppPage() {
             setActiveSection(requested);
         }
         initializedFromUrlRef.current = true;
+    }, []);
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(APP_SETTINGS_STORAGE_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw) as unknown;
+            setAppSettings(parseSettings(parsed));
+        } catch {
+            // ignore corrupted local settings
+        }
+    }, []);
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+        } catch {
+            // ignore storage write failures
+        }
+    }, [appSettings]);
+    const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+        setAppSettings((prev) => ({ ...prev, ...patch }));
+    }, []);
+    const resetSettings = useCallback(() => {
+        setAppSettings(DEFAULT_APP_SETTINGS);
     }, []);
     useEffect(() => {
         if (!file) {
@@ -730,10 +975,13 @@ export default function AppPage() {
             });
         }
         audio.currentTime = startMs / 1000;
+        audio.playbackRate = Number(appSettings.transcriptPlaybackRate);
         segmentEndMsRef.current = endMs;
         setAudioCurrentMs(startMs);
         setPlayingSegment(segmentIndex);
-        setActiveSegment(segmentIndex);
+        if (appSettings.autoSelectSegmentOnPlay) {
+            setActiveSegment(segmentIndex);
+        }
         try {
             await audio.play();
         }
@@ -741,7 +989,7 @@ export default function AppPage() {
             segmentEndMsRef.current = null;
             setPlayingSegment(null);
         }
-    }, [audioUrl, playingSegment, result, stopSegmentPlayback]);
+    }, [appSettings.autoSelectSegmentOnPlay, appSettings.transcriptPlaybackRate, audioUrl, playingSegment, result, stopSegmentPlayback]);
 
     const handleFile = useCallback(async (f: File) => {
         stopSegmentPlayback();
@@ -755,13 +1003,16 @@ export default function AppPage() {
             const data = await transcribeAudio(f, (s) => setStatus(s as UploadStatus));
             setResult(data);
             setStatus("done");
-            setActiveTab(data.segments.length > 0 ? "transcript" : "insights");
+            const targetTab = appSettings.defaultAnalysisTab === "transcript" && data.segments.length === 0
+                ? "insights"
+                : appSettings.defaultAnalysisTab;
+            setActiveTab(targetTab);
         }
         catch (err) {
             setError(err instanceof Error ? err.message : "transcription failed");
             setStatus("error");
         }
-    }, [stopSegmentPlayback]);
+    }, [appSettings.defaultAnalysisTab, stopSegmentPlayback]);
     const loadLibrary = useCallback(async () => {
         setLibraryStatus("loading");
         setLibraryError(null);
@@ -785,8 +1036,10 @@ export default function AppPage() {
     }, [activeSection, libraryStatus, loadLibrary]);
     const handleAnalyzeLibraryItem = useCallback(async (item: LibraryAudioItem) => {
         setActiveLibraryItemUrl(item.url);
-        setActiveSection("dashboard");
-        setActiveTab("transcript");
+        if (appSettings.autoOpenDashboardAfterLibraryAnalyze) {
+            setActiveSection("dashboard");
+        }
+        setActiveTab(appSettings.defaultAnalysisTab);
         try {
             const selectedFile = await fetchPublicAudioFile(item);
             await handleFile(selectedFile);
@@ -798,7 +1051,7 @@ export default function AppPage() {
         finally {
             setActiveLibraryItemUrl(null);
         }
-    }, [handleFile]);
+    }, [appSettings.autoOpenDashboardAfterLibraryAnalyze, appSettings.defaultAnalysisTab, handleFile]);
     const handleSelectSection = useCallback((section: AppSection) => {
         setActiveSection(section);
     }, []);
@@ -869,13 +1122,13 @@ export default function AppPage() {
         };
     }, [audioUrl, file?.name, result]);
     const showVoiceOrb = activeSection === "voice"
-        || (activeSection === "dashboard" && Boolean(hasResult));
+        || (activeSection === "dashboard" && Boolean(hasResult) && appSettings.showDashboardOrb);
     return (<div className="h-dvh w-dvw flex overflow-hidden bg-background">
 
         <LeftSidebar activeSection={activeSection} onSelect={handleSelectSection} />
 
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ ['--sidebar-offset' as string]: '104px' }}>
             <audio ref={audioRef} src={audioUrl ?? undefined} preload="metadata" onTimeUpdate={handleAudioTimeUpdate} onPause={() => {
                     if (segmentEndMsRef.current != null) {
                         segmentEndMsRef.current = null;
@@ -886,7 +1139,7 @@ export default function AppPage() {
                     setPlayingSegment(null);
                 }} className="hidden" />
 
-            <div className="shrink-0 h-14 flex items-center justify-between px-5 border-b border-border/40 bg-card/30">
+            <div className={cn("shrink-0 h-14 flex items-center justify-between px-5 border-b border-border/40 bg-card/30", activeSection === "voice" && "hidden")}>
 
                 <div className="flex items-center gap-3">
                     <h1 className="text-sm font-semibold text-foreground">{heading}</h1>
@@ -925,13 +1178,9 @@ export default function AppPage() {
             <div className="flex-1 flex overflow-hidden">
 
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                    {activeSection === "library" ? (<LibraryPanel items={libraryItems} status={libraryStatus} error={libraryError} onAnalyze={handleAnalyzeLibraryItem} activeItemUrl={activeLibraryItemUrl} />) : activeSection === "voice" ? (<VoicePanel items={libraryItems} status={libraryStatus} error={libraryError} />) : activeSection === "settings" ? (<div className="h-full flex items-center justify-center px-8">
-                        <p className="text-sm text-muted-foreground/70 text-center">
-                            Settings are not configured yet.
-                        </p>
-                    </div>) : (<>
+                    {activeSection === "library" ? (<LibraryPanel items={libraryItems} status={libraryStatus} error={libraryError} onAnalyze={handleAnalyzeLibraryItem} activeItemUrl={activeLibraryItemUrl} />) : activeSection === "voice" ? (<VoicePanel />) : activeSection === "settings" ? (<SettingsPanel settings={appSettings} onChange={updateSettings} onReset={resetSettings} />) : (<>
                         {hasResult && (<div className="shrink-0 h-10 flex items-center gap-0 border-b border-border/30 px-1 bg-card/10">
-                            {(["transcript", "insights", "json"] as const).map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={cn("h-full px-4 font-mono text-[11px] tracking-wider uppercase transition-colors relative font-medium", activeTab === tab
+                            {ANALYSIS_TABS.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={cn("h-full px-4 font-mono text-[11px] tracking-wider uppercase transition-colors relative font-medium", activeTab === tab
                                 ? "text-foreground"
                                 : "text-muted-foreground/40 hover:text-muted-foreground/70")}>
                                 {tab}
@@ -959,7 +1208,7 @@ export default function AppPage() {
                                 {hasResult && activeTab === "transcript" && (<motion.div key="transcript" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
                                     {result.segments.length > 0 ? (
                                     <ScrollArea className="h-full">
-                                        {audioUrl && (<div className="sticky top-0 z-10 border-b border-border/35 bg-background/95 backdrop-blur px-3 py-2.5">
+                                        {audioUrl && appSettings.showTranscriptAudioDock && (<div className="sticky top-0 z-10 border-b border-border/35 bg-background/95 backdrop-blur px-3 py-2.5">
                                             <p className="font-mono text-[9px] tracking-[0.18em] uppercase text-muted-foreground/55 mb-1.5">
                                                 Source Audio
                                             </p>
@@ -975,7 +1224,7 @@ export default function AppPage() {
                                                 : 0;
                                             return (<SegRow key={i} seg={seg} index={i} isActive={activeSegment === i} isPlaying={playingSegment === i} segmentProgress={segmentProgress} hasAudio={Boolean(audioUrl)} onClick={() => setActiveSegment(activeSegment === i ? null : i)} onPlaySegment={() => {
                                                     void handlePlaySegment(i);
-                                                }} />);
+                                                }} showNativeScript={appSettings.showNativeScriptCard} />);
                                         })}
                                     </ScrollArea>
                                     ) : (
@@ -1018,7 +1267,7 @@ export default function AppPage() {
                 </div>
 
 
-                <div className="w-72 shrink-0 flex flex-col border-l border-border/30 overflow-hidden bg-card/20 min-h-0">
+                <div className={cn("w-72 shrink-0 flex flex-col border-l border-border/30 overflow-hidden bg-card/20 min-h-0", activeSection === "voice" && "hidden")}>
 
                     <div className="shrink-0 h-10 flex items-center px-4 border-b border-border/30">
                         <span className="text-[11px] tracking-wide uppercase text-muted-foreground/60 font-semibold">
@@ -1373,7 +1622,7 @@ export default function AppPage() {
                                                 </span>
                                             </div>
                                         )}
-                                        {selectedNativeText && selectedScriptStyle && (<div className={cn("rounded-md border px-2.5 py-2 space-y-1", selectedScriptStyle.toneClass)}>
+                                        {appSettings.showNativeScriptCard && selectedNativeText && selectedScriptStyle && (<div className={cn("rounded-md border px-2.5 py-2 space-y-1", selectedScriptStyle.toneClass)}>
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="font-mono text-[9px] tracking-[0.14em] uppercase opacity-80">
                                                     Native Script
@@ -1397,13 +1646,10 @@ export default function AppPage() {
             {/* Voice Agent orb is available in voice mode and post-analysis dashboard mode */}
             {showVoiceOrb && (
                 <MinimalVoiceAgent
-                    dockedLeft={
-                        activeSection === "voice"
-                            ? 260
-                            : activeSection === "dashboard" && hasResult
-                                ? 800
-                                : 86
-                    }
+                    centered={activeSection === "voice"}
+                    {...(activeSection !== "voice" ? { dockedLeft: activeSection === "dashboard" && hasResult
+                                ? appSettings.dashboardOrbOffset
+                                : 86 } : {})}
                     preloadedRecording={activeVoiceRecording}
                 />
             )}
