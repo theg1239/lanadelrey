@@ -25,7 +25,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 `/api/audio/update` now supports two backends:
 
 - `OPENAI=true`: run full-stack processing in Next.js via AI SDK (OpenAI transcription + GPT translation + insights/ui_spec generation).
-- any other value: proxy to the Python service at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`).
+- any other value: proxy to the Python service at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`). 
 
 Optional model env vars when `OPENAI=true`:
 
