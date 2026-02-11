@@ -11,6 +11,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { listPublicAudioItems, readPublicFileBytes } from "@/lib/library-audio";
+import { runAudioUpdatePipeline } from "@/lib/server/audio-update";
 import {
   clearVoiceTurnProgress,
   setVoiceTurnProgress,
@@ -71,6 +72,24 @@ const recordingCache =
   (globalForRecordingCache.__geoGoodRecordingCache =
     new Map<string, CachedRecording>());
 
+type ActiveCallRecordingContext = {
+  name?: string;
+  index?: number;
+  language?: string;
+  durationInSeconds?: number;
+  transcriptText: string;
+  segments: RecordingTranscriptSegment[];
+  analysis?: RecordingAnalysis;
+};
+
+const EMPTY_RECORDING_ANALYSIS: RecordingAnalysis = {
+  summary: "",
+  keyPoints: [],
+  actionItems: [],
+  topics: [],
+  sentiment: "neutral",
+};
+
 const safeJsonParse = (value: unknown): unknown | null => {
   if (typeof value !== "string" || value.trim() === "") return null;
   try {
@@ -95,7 +114,209 @@ const normalizeMessages = (value: unknown): CoreMessage[] => {
   return out.slice(-24);
 };
 
-const buildSystemPrompt = (callState: unknown) => {
+const sanitizeText = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim();
+};
+
+const asFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value;
+};
+
+const asStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => sanitizeText(v))
+    .filter((t) => t.length > 0);
+};
+
+const isMeaningful = (text: string): boolean => {
+  if (!text) return false;
+  const lowered = text.toLowerCase();
+  return lowered !== "<nospeech>" && lowered !== "nospeech";
+};
+
+const sanitizeCallStateSegments = (value: unknown): RecordingTranscriptSegment[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const seg = item as {
+        text?: unknown;
+        startSecond?: unknown;
+        endSecond?: unknown;
+      };
+      const text = sanitizeText(seg.text);
+      if (!isMeaningful(text)) return null;
+      const startSecond = asFiniteNumber(seg.startSecond) ?? 0;
+      const endSecond = asFiniteNumber(seg.endSecond) ?? startSecond;
+      return {
+        text,
+        startSecond,
+        endSecond: Math.max(startSecond, endSecond),
+      } satisfies RecordingTranscriptSegment;
+    })
+    .filter((s): s is NonNullable<typeof s> => Boolean(s));
+};
+
+const sanitizeCallStateAnalysis = (value: unknown): RecordingAnalysis | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as {
+    summary?: unknown;
+    keyPoints?: unknown;
+    actionItems?: unknown;
+    topics?: unknown;
+    sentiment?: unknown;
+  };
+
+  const summary = sanitizeText(raw.summary);
+  const keyPoints = asStringArray(raw.keyPoints);
+  const actionItems = asStringArray(raw.actionItems);
+  const topics = asStringArray(raw.topics);
+  const sentimentRaw = sanitizeText(raw.sentiment).toLowerCase();
+  const sentiment: RecordingAnalysis["sentiment"] =
+    sentimentRaw === "positive" || sentimentRaw === "negative" || sentimentRaw === "mixed"
+      ? (sentimentRaw as RecordingAnalysis["sentiment"])
+      : "neutral";
+
+  if (!summary && keyPoints.length === 0 && actionItems.length === 0 && topics.length === 0) {
+    return undefined;
+  }
+
+  return {
+    summary,
+    keyPoints,
+    actionItems,
+    topics,
+    sentiment,
+  };
+};
+
+const buildActiveCallRecordingContext = (callState: unknown): ActiveCallRecordingContext | null => {
+  if (!callState || typeof callState !== "object") return null;
+  const state = callState as {
+    activeRecordingName?: unknown;
+    activeRecordingIndex?: unknown;
+    activeRecordingLanguage?: unknown;
+    activeRecordingDurationInSeconds?: unknown;
+    activeRecordingTranscriptText?: unknown;
+    activeRecordingSegments?: unknown;
+    activeRecordingAnalysis?: unknown;
+    activeRecordingSummary?: unknown;
+  };
+
+  const name = sanitizeText(state.activeRecordingName);
+  const rawIndex = asFiniteNumber(state.activeRecordingIndex);
+  const index = typeof rawIndex === "number" ? Math.floor(rawIndex) : undefined;
+  const language = sanitizeText(state.activeRecordingLanguage) || undefined;
+  const durationInSeconds = asFiniteNumber(state.activeRecordingDurationInSeconds);
+  const segments = sanitizeCallStateSegments(state.activeRecordingSegments);
+  const transcriptTextFromState = sanitizeText(state.activeRecordingTranscriptText);
+  const transcriptText = transcriptTextFromState || segments.map((seg) => seg.text).join(" ").trim();
+
+  const parsedAnalysis = sanitizeCallStateAnalysis(state.activeRecordingAnalysis);
+  const summaryFromState = sanitizeText(state.activeRecordingSummary);
+  const analysis =
+    parsedAnalysis ||
+    (isMeaningful(summaryFromState)
+      ? { ...EMPTY_RECORDING_ANALYSIS, summary: summaryFromState }
+      : undefined);
+
+  const hasContext =
+    Boolean(name) ||
+    typeof index === "number" ||
+    Boolean(language) ||
+    typeof durationInSeconds === "number" ||
+    isMeaningful(transcriptText) ||
+    segments.length > 0 ||
+    Boolean(analysis);
+
+  if (!hasContext) return null;
+
+  return {
+    name: name || undefined,
+    index,
+    language,
+    durationInSeconds,
+    transcriptText,
+    segments,
+    analysis,
+  };
+};
+
+const toCachedRecording = (context: ActiveCallRecordingContext): CachedRecording => {
+  return {
+    name: context.name || "Current recording",
+    url: "",
+    index: typeof context.index === "number" ? context.index : 0,
+    analyzedAt: new Date().toISOString(),
+    transcript: {
+      text: context.transcriptText,
+      language: context.language,
+      durationInSeconds: context.durationInSeconds,
+      segments: context.segments,
+    },
+    analysis: context.analysis ?? EMPTY_RECORDING_ANALYSIS,
+  };
+};
+
+const isTargetingContextRecording = (
+  context: ActiveCallRecordingContext | null,
+  args: { index?: number; name?: string },
+): boolean => {
+  if (!context) return false;
+  const idx = typeof args.index === "number" ? Math.floor(args.index) : undefined;
+  const rawName = sanitizeText(args.name);
+
+  const indexMatch =
+    typeof idx === "number" && typeof context.index === "number" && idx === context.index;
+  const nameMatch =
+    rawName.length > 0 &&
+    Boolean(context.name) &&
+    (normalizeRecordingKey(rawName) === normalizeRecordingKey(context.name || "") ||
+      stripExtension(normalizeRecordingKey(rawName)) ===
+        stripExtension(normalizeRecordingKey(context.name || "")));
+  return indexMatch || nameMatch;
+};
+
+const scoreTranscriptSegments = (
+  segments: RecordingTranscriptSegment[],
+  query: string,
+  topK: number,
+) => {
+  const q = sanitizeText(query).toLowerCase();
+  if (!q) return [] as Array<{ startSecond: number; endSecond: number; text: string }>;
+  const qTokens = q
+    .split(/\s+/g)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3)
+    .slice(0, 12);
+
+  return segments
+    .map((seg) => {
+      const t = seg.text.toLowerCase();
+      let score = 0;
+      if (t.includes(q)) score += 10;
+      for (const tok of qTokens) {
+        if (t.includes(tok)) score += 1;
+      }
+      return { seg, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map((x) => ({
+      startSecond: x.seg.startSecond,
+      endSecond: x.seg.endSecond,
+      text: x.seg.text,
+    }));
+};
+
+const buildSystemPrompt = (
+  callState: unknown,
+  activeContext: ActiveCallRecordingContext | null,
+) => {
   const stateJson =
     callState && typeof callState === "object"
       ? JSON.stringify(callState)
@@ -106,23 +327,41 @@ const buildSystemPrompt = (callState: unknown) => {
     "You can see the conversation transcript (messages) and a call_state JSON blob.",
     "If the user asks about what is being recorded, what just happened, whether the mic is on, timing, or the flow of the call: answer from call_state and the transcript.",
     "You also have tools to work with the user's recording library (list, analyze, and search recordings).",
+    "If call_state already includes active recording analysis/transcript context, prefer that context first for fast answers.",
+    "Use query_active_context for precise excerpt retrieval from active call_state context before falling back to library tools.",
     "If the user says e.g. 'recording 3' or 'analyze recording 3', call analyze_recording with index=3.",
     "If the user references a file name like 'Sample3' or 'Sample3.mp3', call analyze_recording with name.",
     "If the user asks a question about a recording but no recording has been analyzed yet, call list_recordings and ask which one to analyze.",
-    "Once a recording is analyzed, you can answer questions about it. Prefer calling search_recording (or get_recording) to ground your answer in transcript excerpts instead of guessing.",
+    "When call_state context does not contain the requested detail, use get_recording/search_recording for library recordings.",
     "",
     "Tool examples:",
+    "User: what did they agree to?",
+    "-> query_active_context({ query: 'what did they agree to' }) (if active call_state recording exists)",
     "User: recording 3",
     "-> analyze_recording({ index: 3 })",
     "User: analyze Sample3",
-    "-> analyze_recording({ name: \"Sample3\" })",
-    "User: what did they agree to?",
-    "-> search_recording({ query: \"what did they agree to\" }) (if needed)",
+    "-> analyze_recording({ name: 'Sample3' })",
+    "User: what did they agree to in recording 3?",
+    "-> search_recording({ query: 'what did they agree to', index: 3 })",
     "If the information is not present, say you don't know. Do not invent audio you did not receive.",
     "Keep responses concise and speakable.",
     "",
+    `active_call_state_recording_present: ${activeContext ? "yes" : "no"}`,
+    activeContext?.name ? `active_call_state_recording_name: ${activeContext.name}` : "",
+    typeof activeContext?.index === "number"
+      ? `active_call_state_recording_index: ${activeContext.index}`
+      : "",
+    activeContext?.language ? `active_call_state_recording_language: ${activeContext.language}` : "",
+    typeof activeContext?.durationInSeconds === "number"
+      ? `active_call_state_recording_duration_seconds: ${activeContext.durationInSeconds}`
+      : "",
+    activeContext?.segments.length
+      ? `active_call_state_recording_segments: ${activeContext.segments.length}`
+      : "",
     `call_state: ${stateJson}`,
-  ].join("\n");
+  ]
+    .filter((line) => line.length > 0)
+    .join("\n");
 };
 
 const normalizeRecordingKey = (name: string) => name.trim().toLowerCase();
@@ -172,24 +411,6 @@ const pickRecording = async (opts: { index?: number; name?: string }) => {
   }
 
   throw new Error("No recording specified.");
-};
-
-const PYTHON_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-const sanitizeText = (value: unknown): string => {
-  if (typeof value !== "string") return "";
-  return value.replace(/\s+/g, " ").trim();
-};
-
-const isMeaningful = (text: string): boolean => {
-  if (!text) return false;
-  const lowered = text.toLowerCase();
-  return lowered !== "<nospeech>" && lowered !== "nospeech";
-};
-
-const asStringArray = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  return value.map((v) => sanitizeText(v)).filter((t) => isMeaningful(t));
 };
 
 const buildSegmentsFromDiarizedEntries = (entries: unknown): RecordingTranscriptSegment[] => {
@@ -316,42 +537,15 @@ const simplifyInsights = (insights: PythonInsights | null | undefined): Recordin
   };
 };
 
-const analyzeRecordingViaPython = async (audioBytes: Uint8Array, fileName: string) => {
+const analyzeRecordingViaPipeline = async (audioBytes: Uint8Array, fileName: string) => {
   const bytesCopy = new Uint8Array(audioBytes.byteLength);
   bytesCopy.set(audioBytes);
 
-  const fd = new FormData();
-  fd.append("audio", new Blob([bytesCopy.buffer]), fileName);
-
-  const base = PYTHON_API_BASE.endsWith("/") ? PYTHON_API_BASE.slice(0, -1) : PYTHON_API_BASE;
-  const res = await fetch(`${base}/audio/update`, {
-    method: "POST",
-    body: fd,
+  const top = await runAudioUpdatePipeline({
+    audioBytes: bytesCopy,
+    fileName,
   });
 
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.ok) {
-    let err = `Python analysis failed (${res.status})`;
-    if (contentType.includes("application/json")) {
-      const payload = (await res.json().catch(() => null)) as unknown;
-      if (payload && typeof payload === "object") {
-        err =
-          sanitizeText((payload as { detail?: unknown }).detail) ||
-          sanitizeText((payload as { error?: unknown }).error) ||
-          err;
-      }
-    } else {
-      err = sanitizeText(await res.text().catch(() => "")) || err;
-    }
-    throw new Error(err);
-  }
-
-  const raw = (await res.json().catch(() => null)) as unknown;
-  if (!raw || typeof raw !== "object") {
-    throw new Error("Python analysis returned an invalid response.");
-  }
-
-  const top = raw as Record<string, unknown>;
   const translate = top.translate_output;
   const data =
     translate && typeof translate === "object"
@@ -484,20 +678,12 @@ export async function POST(request: Request) {
     }
 
     setVoiceTurnProgress(turnId, "thinking", "Thinking");
-    const system = buildSystemPrompt(callState);
-    const activeRecordingFromState =
-      callState && typeof callState === "object"
-        ? (callState as { activeRecordingName?: unknown; activeRecordingIndex?: unknown })
-        : null;
-    const activeRecordingName =
-      activeRecordingFromState?.activeRecordingName &&
-      typeof activeRecordingFromState.activeRecordingName === "string"
-        ? activeRecordingFromState.activeRecordingName.trim()
-        : undefined;
+    const activeCallContext = buildActiveCallRecordingContext(callState);
+    const system = buildSystemPrompt(callState, activeCallContext);
+    const activeRecordingName = activeCallContext?.name;
     const activeRecordingIndex =
-      typeof activeRecordingFromState?.activeRecordingIndex === "number" &&
-      Number.isFinite(activeRecordingFromState.activeRecordingIndex)
-        ? Math.floor(activeRecordingFromState.activeRecordingIndex)
+      typeof activeCallContext?.index === "number" && activeCallContext.index >= 1
+        ? Math.floor(activeCallContext.index)
         : undefined;
 
     const tools = {
@@ -514,9 +700,55 @@ export async function POST(request: Request) {
           };
         },
       }),
+      query_active_context: tool({
+        description:
+          "Query the active recording context supplied in call_state (summary, transcript, and segments) for fast answers without re-analyzing library files.",
+        inputSchema: z.object({
+          query: z.string().optional(),
+          topK: z.number().int().min(1).max(8).optional(),
+        }),
+        execute: async ({ query, topK }) => {
+          setVoiceTurnProgress(turnId, "searching_recording", "Searching Recording");
+          if (!activeCallContext) {
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return {
+              ok: false,
+              error:
+                "No active recording context in call_state. Ask me to analyze a library recording first.",
+            };
+          }
+
+          const q = sanitizeText(query);
+          const targetK = topK ?? 5;
+          const excerpts = q
+            ? scoreTranscriptSegments(activeCallContext.segments, q, targetK)
+            : activeCallContext.segments.slice(0, targetK).map((seg) => ({
+                startSecond: seg.startSecond,
+                endSecond: seg.endSecond,
+                text: seg.text,
+              }));
+
+          const recording = toCachedRecording(activeCallContext);
+          setVoiceTurnProgress(turnId, "thinking", "Thinking");
+          return {
+            ok: true,
+            source: "call_state",
+            recording: {
+              name: recording.name,
+              index: recording.index,
+              language: recording.transcript.language,
+              durationInSeconds: recording.transcript.durationInSeconds,
+            },
+            analysis: recording.analysis,
+            transcriptText: recording.transcript.text,
+            query: q || null,
+            excerpts,
+          };
+        },
+      }),
       analyze_recording: tool({
         description:
-          "Analyze a recording from the library using the existing Python pipeline (transcription + translation + insights). Accepts either a 1-based index (e.g. 3) or a name (e.g. 'Sample3' or 'Sample3.mp3'). Returns summary + key points and caches the transcript for Q&A.",
+          "Analyze a recording from the library using the configured full-stack pipeline (OPENAI=true uses AI SDK; otherwise it proxies to Python). Accepts either a 1-based index (e.g. 3) or a name (e.g. 'Sample3' or 'Sample3.mp3'). Returns summary + key points and caches the transcript for Q&A.",
         inputSchema: z.object({
           index: z.number().int().min(1).optional(),
           name: z.string().optional(),
@@ -526,6 +758,17 @@ export async function POST(request: Request) {
           setVoiceTurnProgress(turnId, "performing_analysis", "Performing Analysis");
           const idx = typeof index === "number" ? index : activeRecordingIndex;
           const nm = (name ?? activeRecordingName)?.trim();
+          const hasExplicitTarget = typeof index === "number" || Boolean(sanitizeText(name));
+
+          if (!hasExplicitTarget && activeCallContext && !force) {
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return {
+              ok: true,
+              cached: true,
+              source: "call_state",
+              recording: toCachedRecording(activeCallContext),
+            };
+          }
 
           let picked: Awaited<ReturnType<typeof pickRecording>>;
           try {
@@ -555,9 +798,9 @@ export async function POST(request: Request) {
             return { ok: false, error: message };
           }
 
-          let python: Awaited<ReturnType<typeof analyzeRecordingViaPython>>;
+          let python: Awaited<ReturnType<typeof analyzeRecordingViaPipeline>>;
           try {
-            python = await analyzeRecordingViaPython(audioBytes, picked.item.name);
+            python = await analyzeRecordingViaPipeline(audioBytes, picked.item.name);
           } catch (e) {
             const message = e instanceof Error ? e.message : "Failed to analyze recording.";
             setVoiceTurnProgress(turnId, "thinking", "Thinking");
@@ -595,6 +838,28 @@ export async function POST(request: Request) {
           setVoiceTurnProgress(turnId, "thinking", "Fetching Recording");
           const idx = typeof index === "number" ? index : activeRecordingIndex;
           const nm = (name ?? activeRecordingName)?.trim();
+          const hasExplicitTarget = typeof index === "number" || Boolean(sanitizeText(name));
+
+          if (!hasExplicitTarget && activeCallContext) {
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return {
+              ok: true,
+              source: "call_state",
+              recording: toCachedRecording(activeCallContext),
+            };
+          }
+
+          if (
+            activeCallContext &&
+            isTargetingContextRecording(activeCallContext, { index: idx, name: nm })
+          ) {
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return {
+              ok: true,
+              source: "call_state",
+              recording: toCachedRecording(activeCallContext),
+            };
+          }
 
           try {
             const picked = await pickRecording({ index: idx, name: nm });
@@ -634,10 +899,40 @@ export async function POST(request: Request) {
             return { ok: false, error: "Empty query." };
           }
 
+          const targetK = topK ?? 5;
           const idx = typeof index === "number" ? index : activeRecordingIndex;
           const nm = (name ?? activeRecordingName)?.trim();
+          const hasExplicitTarget = typeof index === "number" || Boolean(sanitizeText(name));
 
-          const picked = await pickRecording({ index: idx, name: nm });
+          if (
+            activeCallContext &&
+            (!hasExplicitTarget || isTargetingContextRecording(activeCallContext, { index: idx, name: nm }))
+          ) {
+            const excerpts = scoreTranscriptSegments(activeCallContext.segments, q, targetK);
+            const contextRecording = toCachedRecording(activeCallContext);
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return {
+              ok: true,
+              source: "call_state",
+              recording: {
+                name: contextRecording.name,
+                url: contextRecording.url,
+                index: contextRecording.index,
+              },
+              query: q,
+              excerpts,
+            };
+          }
+
+          let picked: Awaited<ReturnType<typeof pickRecording>>;
+          try {
+            picked = await pickRecording({ index: idx, name: nm });
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Failed to find recording.";
+            setVoiceTurnProgress(turnId, "thinking", "Thinking");
+            return { ok: false, error: message };
+          }
+
           const cacheKey = normalizeRecordingKey(picked.item.name);
           const cached = recordingCache.get(cacheKey);
           if (!cached) {
@@ -649,37 +944,11 @@ export async function POST(request: Request) {
             };
           }
 
-          const targetK = topK ?? 5;
-          const qLower = q.toLowerCase();
-          const qTokens = qLower
-            .split(/\s+/g)
-            .map((t) => t.trim())
-            .filter((t) => t.length >= 3)
-            .slice(0, 12);
-
-          const scored = cached.transcript.segments
-            .map((seg, i) => {
-              const t = seg.text.toLowerCase();
-              let score = 0;
-              if (t.includes(qLower)) score += 10;
-              for (const tok of qTokens) {
-                if (t.includes(tok)) score += 1;
-              }
-              return { i, seg, score };
-            })
-            .filter((x) => x.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, targetK);
-
           const response = {
             ok: true,
             recording: { name: cached.name, url: cached.url, index: cached.index },
             query: q,
-            excerpts: scored.map((x) => ({
-              startSecond: x.seg.startSecond,
-              endSecond: x.seg.endSecond,
-              text: x.seg.text,
-            })),
+            excerpts: scoreTranscriptSegments(cached.transcript.segments, q, targetK),
           };
           setVoiceTurnProgress(turnId, "thinking", "Thinking");
           return response;

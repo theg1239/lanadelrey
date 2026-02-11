@@ -20,6 +20,21 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Audio Pipeline Toggle
+
+`/api/audio/update` now supports two backends:
+
+- `OPENAI=true`: run full-stack processing in Next.js via AI SDK (OpenAI transcription + GPT translation + insights/ui_spec generation).
+- any other value: proxy to the Python service at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`).
+
+Optional model env vars when `OPENAI=true`:
+
+- `OPENAI_TRANSCRIPTION_MODEL` (default: `gpt-4o-transcribe`)
+- `OPENAI_TRANSLATION_MODEL` (default: `gpt-5.2`)
+- `OPENAI_MODEL` for insights/ui spec generation (default: `gpt-4o-mini`)
+
+`OPENAI_API_KEY` is required when `OPENAI=true`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

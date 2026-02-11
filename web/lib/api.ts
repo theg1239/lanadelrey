@@ -5,8 +5,6 @@ import type {
     TranscriptionResult,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 type FastApiTranscriptEntry = {
     transcript?: string;
     transcript_english?: string;
@@ -187,12 +185,103 @@ const emptyInsights = (): Insights => ({
     },
 });
 
+const normalizeInsightsForDisplay = (
+    rawInsights: Insights,
+    context: {
+        language?: unknown;
+        transcript?: unknown;
+        segments?: unknown;
+        diarizedEntries?: unknown;
+        timestamps?: unknown;
+    }
+): Insights => {
+    const insights = structuredClone(rawInsights);
+    const normalizedLanguage = sanitizeText(context.language);
+    const hasLanguage = Boolean(normalizedLanguage && normalizedLanguage.toLowerCase() !== "unknown");
+    const hasTranscript = isMeaningful(sanitizeText(context.transcript));
+    const hasSegments = Array.isArray(context.segments) && context.segments.length > 0;
+    const hasDiarized = Array.isArray(context.diarizedEntries) && context.diarizedEntries.length > 0;
+    const ts = (context.timestamps && typeof context.timestamps === "object")
+        ? (context.timestamps as {
+            words?: unknown;
+            words_english?: unknown;
+            start_time_seconds?: unknown;
+            end_time_seconds?: unknown;
+        })
+        : undefined;
+    const hasTimestamps = Boolean(
+        (Array.isArray(ts?.words) && ts.words.some((w) => isMeaningful(sanitizeText(w))))
+        || (Array.isArray(ts?.words_english) && ts.words_english.some((w) => isMeaningful(sanitizeText(w))))
+        || (Array.isArray(ts?.start_time_seconds) && ts.start_time_seconds.some((n) => typeof n === "number"))
+        || (Array.isArray(ts?.end_time_seconds) && ts.end_time_seconds.some((n) => typeof n === "number"))
+    );
+
+    if (hasLanguage) {
+        if (!insights.ingestion.detected_language || insights.ingestion.detected_language.toLowerCase() === "unknown") {
+            insights.ingestion.detected_language = normalizedLanguage;
+        }
+        if (!insights.transcription.transcript_language || insights.transcription.transcript_language.toLowerCase() === "unknown") {
+            insights.transcription.transcript_language = normalizedLanguage;
+        }
+        if ((insights.ingestion.language_confidence ?? 0) <= 0) {
+            insights.ingestion.language_confidence = 1;
+        }
+    }
+
+    const reviewReasons = Array.isArray(insights.review.review_reasons)
+        ? insights.review.review_reasons
+        : [];
+    const filtered = reviewReasons.filter((reason) => {
+        const lower = sanitizeText(reason).toLowerCase();
+        if (
+            (hasTranscript || hasTimestamps || hasSegments || hasDiarized)
+            && (
+                lower.includes("no audio/timestamp")
+                || lower.includes("no timestamp")
+                || lower.includes("no diarized segment")
+                || lower.includes("inferred from transcript text only")
+                || lower.includes("asr confidence and language detection inferred from transcript")
+            )
+        ) {
+            return false;
+        }
+        if (
+            hasLanguage
+            && (
+                lower.includes("language field in original input was")
+                || lower.includes("automated detection from text")
+                || (lower.includes("language") && lower.includes("unknown"))
+            )
+        ) {
+            return false;
+        }
+        return true;
+    });
+
+    insights.review.review_reasons = filtered;
+    if (filtered.length === 0 && (insights.review.correction_queue?.length ?? 0) === 0) {
+        insights.review.needs_human_review = false;
+    }
+
+    return insights;
+};
+
 const normalizeFastApiResponse = (raw: FastApiResponse): TranscriptionResult => {
     // Backend wraps transcript data inside translate_output — flatten it
     const translate = raw.translate_output;
     const data: FastApiResponse = translate
         ? { ...translate, insights: raw.insights, ui_spec: raw.ui_spec }
         : raw;
+    const normalizedInsights = normalizeInsightsForDisplay(
+        data.insights ?? emptyInsights(),
+        {
+            language: data.language ?? data.language_code,
+            transcript: data.transcript_english ?? data.transcript,
+            segments: data.segments,
+            diarizedEntries: data.diarized_transcript?.entries,
+            timestamps: data.timestamps,
+        }
+    );
 
     const globalConfidence =
         normalizeConfidence(data.insights?.transcription?.asr_confidence)
@@ -225,7 +314,7 @@ const normalizeFastApiResponse = (raw: FastApiResponse): TranscriptionResult => 
                     confidence: normalizeConfidence(seg.confidence) ?? globalConfidence,
                 };
             }),
-            insights: data.insights ?? emptyInsights(),
+            insights: normalizedInsights,
             ui_spec: data.ui_spec,
         };
     }
@@ -282,7 +371,7 @@ const normalizeFastApiResponse = (raw: FastApiResponse): TranscriptionResult => 
         language: String(data.language_code ?? data.language ?? "unknown"),
         duration_s,
         segments,
-        insights: data.insights ?? emptyInsights(),
+        insights: normalizedInsights,
         ui_spec: data.ui_spec,
     };
 };
@@ -301,7 +390,7 @@ export async function transcribeAudio(
     const finalizeTimer = setTimeout(() => onProgress?.("finalizing"), 8000);
 
     try {
-        const res = await fetch(`${API_BASE}/audio/update`, {
+        const res = await fetch("/api/audio/update", {
             method: "POST",
             body: formData,
         });

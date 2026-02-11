@@ -1,6 +1,7 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { Play, Pause, Languages } from "lucide-react";
 import { cn, formatMs, formatFileSize, confidenceColor } from "@/lib/utils";
 import { fetchPublicAudioFile, listLibraryAudio, transcribeAudio } from "@/lib/api";
 import type {
@@ -12,7 +13,11 @@ import type {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { InsightsFallback, InsightsRenderer } from "@/components/insights-renderer";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { MinimalVoiceAgent } from "@/components/voice-agent/minimal-voice-agent";
+import {
+    MinimalVoiceAgent,
+    type ActiveRecording as VoiceAgentActiveRecording,
+    type RecordingAnalysis as VoiceAgentRecordingAnalysis,
+} from "@/components/voice-agent/minimal-voice-agent";
 
 type AppSection = "dashboard" | "library" | "voice" | "settings";
 type LibraryStatus = "idle" | "loading" | "ready" | "error";
@@ -30,6 +35,28 @@ const PIPELINE_STAGES = [
     { key: "analyzing", label: "Analyzing", desc: "Intent, entity & obligation extraction" },
     { key: "finalizing", label: "Finalizing", desc: "Building structured insights" },
 ] as const;
+const buildVoiceAgentAnalysis = (result: TranscriptionResult): VoiceAgentRecordingAnalysis => {
+    const primaryIntent = result.insights.primary_intent?.trim();
+    const secondaryIntents = (result.insights.secondary_intents ?? []).filter(Boolean);
+    const keyPoints: string[] = [];
+    if (primaryIntent) keyPoints.push(`Intent: ${primaryIntent}`);
+    for (const topic of secondaryIntents.slice(0, 4)) {
+        keyPoints.push(`Topic: ${topic}`);
+    }
+    for (const item of (result.insights.action_items ?? []).slice(0, 4)) {
+        keyPoints.push(`Action: ${item}`);
+    }
+    for (const ob of (result.insights.obligations ?? []).slice(0, 3)) {
+        if (ob?.text) keyPoints.push(`Obligation: ${ob.text}`);
+    }
+    return {
+        summary: result.insights.summary ?? "",
+        keyPoints: keyPoints.slice(0, 10),
+        actionItems: (result.insights.action_items ?? []).slice(0, 12),
+        topics: Array.from(new Set([primaryIntent, ...secondaryIntents].filter(Boolean))).slice(0, 10),
+        sentiment: result.insights.sentiment ?? "neutral",
+    };
+};
 
 function useElapsedTime(running: boolean) {
     const [elapsed, setElapsed] = useState(0);
@@ -245,53 +272,167 @@ function DropZone({ onFile, processing, file, status, }: {
         </AnimatePresence>
     </div>);
 }
-function SegRow({ seg, index, isActive, onClick, }: {
+type ScriptStyle = {
+    label: string;
+    fontFamily: string;
+    toneClass: string;
+    direction?: "ltr" | "rtl";
+};
+const SCRIPT_STYLES: Array<{ pattern: RegExp; style: ScriptStyle; }> = [
+    {
+        pattern: /[\u0B80-\u0BFF]/,
+        style: {
+            label: "Tamil",
+            fontFamily: "var(--font-native-tamil), var(--font-sans), sans-serif",
+            toneClass: "border-chart-3/25 bg-chart-3/[0.08] text-chart-3",
+        },
+    },
+    {
+        pattern: /[\u0C80-\u0CFF]/,
+        style: {
+            label: "Kannada",
+            fontFamily: "var(--font-native-kannada), var(--font-sans), sans-serif",
+            toneClass: "border-primary/25 bg-primary/[0.08] text-primary",
+        },
+    },
+    {
+        pattern: /[\u0900-\u097F]/,
+        style: {
+            label: "Devanagari",
+            fontFamily: "var(--font-native-devanagari), var(--font-sans), sans-serif",
+            toneClass: "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-600",
+        },
+    },
+    {
+        pattern: /[\u0600-\u06FF]/,
+        style: {
+            label: "Arabic",
+            fontFamily: "var(--font-sans), sans-serif",
+            toneClass: "border-sky-500/25 bg-sky-500/[0.08] text-sky-600",
+            direction: "rtl",
+        },
+    },
+    {
+        pattern: /[\u0C00-\u0C7F]/,
+        style: {
+            label: "Telugu",
+            fontFamily: "var(--font-sans), sans-serif",
+            toneClass: "border-fuchsia-500/25 bg-fuchsia-500/[0.08] text-fuchsia-600",
+        },
+    },
+    {
+        pattern: /[\u0D00-\u0D7F]/,
+        style: {
+            label: "Malayalam",
+            fontFamily: "var(--font-sans), sans-serif",
+            toneClass: "border-indigo-500/25 bg-indigo-500/[0.08] text-indigo-600",
+        },
+    },
+    {
+        pattern: /[\u0980-\u09FF]/,
+        style: {
+            label: "Bengali",
+            fontFamily: "var(--font-sans), sans-serif",
+            toneClass: "border-amber-500/25 bg-amber-500/[0.08] text-amber-700",
+        },
+    },
+];
+const detectScriptStyle = (text: string): ScriptStyle => {
+    for (const entry of SCRIPT_STYLES) {
+        if (entry.pattern.test(text)) {
+            return entry.style;
+        }
+    }
+    return {
+        label: "Native",
+        fontFamily: "var(--font-sans), sans-serif",
+        toneClass: "border-border/40 bg-muted/20 text-muted-foreground/80",
+    };
+};
+function SegRow({ seg, index, isActive, isPlaying, segmentProgress, hasAudio, onClick, onPlaySegment, }: {
     seg: Segment;
     index: number;
     isActive: boolean;
+    isPlaying: boolean;
+    segmentProgress: number;
+    hasAudio: boolean;
     onClick: () => void;
+    onPlaySegment: () => void;
 }) {
     const primaryText = seg.translated_text ?? seg.text;
     const originalText = seg.original_text && seg.original_text !== primaryText
         ? seg.original_text
         : null;
-    return (<button type="button" onClick={onClick} className={cn("group w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors", "hover:bg-card/40", isActive && "bg-primary/[0.06] border-l-2 border-primary")}>
-
-        <div className="shrink-0 w-16 pt-0.5">
-            <span className="font-mono text-[10px] text-muted-foreground/30 tabular-nums">
-                {String(index + 1).padStart(3, "0")}
-            </span>
-            <span className="font-mono text-[10px] text-secondary tabular-nums ml-1.5">
-                {formatMs(seg.start_ms)}
-            </span>
-        </div>
-
-
-        <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-[13px] leading-[1.65] text-foreground/80">
-                {originalText && (<span className="font-mono text-[9px] tracking-wider uppercase text-muted-foreground/45 mr-2">
-                    english
-                </span>)}
-                {primaryText}
-            </p>
-            {originalText && (<p className="text-[12px] leading-[1.6] text-muted-foreground/75">
-                <span className="font-mono text-[9px] tracking-wider uppercase text-muted-foreground/45 mr-2">
-                    original
-                </span>
-                {originalText}
-            </p>)}
-        </div>
-
-
-        {seg.confidence != null && (<div className="shrink-0 pt-1.5 flex items-center gap-1.5">
-            <div className="w-8 h-[3px] rounded-full bg-border/40 overflow-hidden">
-                <div className={cn("h-full rounded-full", confidenceColor(seg.confidence))} style={{ width: `${seg.confidence * 100}%`, backgroundColor: "currentColor" }} />
+    const scriptStyle = detectScriptStyle(originalText ?? primaryText);
+    const nativeText = originalText ?? primaryText;
+    return (<div role="button" tabIndex={0} onClick={onClick} onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick();
+            }
+        }} className={cn("group w-full px-3 py-3 text-left transition-colors border-b border-border/20", "hover:bg-card/35", isActive && "bg-primary/[0.05]")}>
+        <div className="flex items-start gap-3">
+            <div className="shrink-0 w-[4.5rem] pt-0.5 space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[10px] text-muted-foreground/35 tabular-nums">
+                        {String(index + 1).padStart(3, "0")}
+                    </span>
+                    <span className="font-mono text-[10px] text-secondary tabular-nums">
+                        {formatMs(seg.start_ms)}
+                    </span>
+                </div>
+                <button type="button" onClick={(event) => {
+                        event.stopPropagation();
+                        onPlaySegment();
+                    }} disabled={!hasAudio} className={cn("w-full inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[9px] tracking-wide uppercase transition-colors", hasAudio
+                        ? "border-primary/30 bg-primary/[0.08] text-primary hover:bg-primary/[0.14]"
+                        : "border-border/40 bg-muted/20 text-muted-foreground/35 cursor-not-allowed")}>
+                    {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                    {isPlaying ? "playing" : "play"}
+                </button>
             </div>
-            <span className="font-mono text-[9px] text-muted-foreground/40 tabular-nums w-7 text-right">
-                {(seg.confidence * 100).toFixed(0)}
-            </span>
+
+            <div className="flex-1 min-w-0 space-y-2.5">
+                <div className="rounded-lg border border-border/35 bg-card/35 px-3 py-2.5">
+                    <p className="font-mono text-[9px] tracking-[0.16em] uppercase text-muted-foreground/45 mb-1.5">
+                        English
+                    </p>
+                    <p className="text-[13px] leading-[1.65] text-foreground/80">
+                        {primaryText}
+                    </p>
+                </div>
+
+                <div className={cn("rounded-lg border px-3 py-2.5", scriptStyle.toneClass)}>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <p className="font-mono text-[9px] tracking-[0.16em] uppercase opacity-80 inline-flex items-center gap-1">
+                            <Languages className="h-3 w-3" />
+                            Native Script
+                        </p>
+                        <span className="font-mono text-[9px] tracking-wide uppercase opacity-75">
+                            {scriptStyle.label}
+                        </span>
+                    </div>
+                    <p dir={scriptStyle.direction ?? "ltr"} style={{ fontFamily: scriptStyle.fontFamily }} className="text-[17px] leading-[1.9] tracking-[0.01em] text-foreground/90 break-words">
+                        {nativeText}
+                    </p>
+                </div>
+            </div>
+
+            {seg.confidence != null && (<div className="shrink-0 pt-1.5 flex items-center gap-1.5">
+                <div className="w-10 h-[4px] rounded-full bg-border/40 overflow-hidden">
+                    <div className={cn("h-full rounded-full", confidenceColor(seg.confidence))} style={{ width: `${seg.confidence * 100}%`, backgroundColor: "currentColor" }} />
+                </div>
+                <span className="font-mono text-[9px] text-muted-foreground/40 tabular-nums w-7 text-right">
+                    {(seg.confidence * 100).toFixed(0)}
+                </span>
+            </div>)}
+        </div>
+        {isPlaying && (<div className="mt-2 ml-[5.25rem]">
+            <div className="h-1.5 w-full rounded-full bg-primary/12 overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${Math.max(0, Math.min(100, segmentProgress * 100)).toFixed(1)}%` }} />
+            </div>
         </div>)}
-    </button>);
+    </div>);
 }
 function EntityPill({ type, value, currency }: {
     type: string;
@@ -504,9 +645,14 @@ function VoicePanel({ items, status, error }: {
 }
 export default function AppPage() {
     const initializedFromUrlRef = useRef(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const segmentEndMsRef = useRef<number | null>(null);
     const [activeSection, setActiveSection] = useState<AppSection>("dashboard");
     const [status, setStatus] = useState<UploadStatus>("idle");
     const [file, setFile] = useState<File | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [playingSegment, setPlayingSegment] = useState<number | null>(null);
+    const [audioCurrentMs, setAudioCurrentMs] = useState(0);
     const [result, setResult] = useState<TranscriptionResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [activeSegment, setActiveSegment] = useState<number | null>(null);
@@ -525,8 +671,81 @@ export default function AppPage() {
         }
         initializedFromUrlRef.current = true;
     }, []);
+    useEffect(() => {
+        if (!file) {
+            setAudioUrl(null);
+            return;
+        }
+        const nextUrl = URL.createObjectURL(file);
+        setAudioUrl(nextUrl);
+        return () => {
+            URL.revokeObjectURL(nextUrl);
+        };
+    }, [file]);
+    const stopSegmentPlayback = useCallback(() => {
+        const audio = audioRef.current;
+        if (audio && !audio.paused) {
+            audio.pause();
+        }
+        segmentEndMsRef.current = null;
+        setPlayingSegment(null);
+    }, []);
+    const handleAudioTimeUpdate = useCallback(() => {
+        const audio = audioRef.current;
+        if (!audio)
+            return;
+        const currentMs = audio.currentTime * 1000;
+        setAudioCurrentMs(currentMs);
+        if (segmentEndMsRef.current != null && currentMs >= segmentEndMsRef.current - 30) {
+            audio.pause();
+            audio.currentTime = segmentEndMsRef.current / 1000;
+            segmentEndMsRef.current = null;
+            setPlayingSegment(null);
+        }
+    }, []);
+    const handlePlaySegment = useCallback(async (segmentIndex: number) => {
+        if (!result || !audioUrl)
+            return;
+        const segment = result.segments[segmentIndex];
+        const audio = audioRef.current;
+        if (!segment || !audio)
+            return;
+        const startMs = Math.max(0, segment.start_ms);
+        const endMs = Math.max(startMs + 120, segment.end_ms);
+        if (playingSegment === segmentIndex && !audio.paused) {
+            stopSegmentPlayback();
+            return;
+        }
+        if (audio.src !== audioUrl) {
+            audio.src = audioUrl;
+        }
+        if (audio.readyState < 1) {
+            await new Promise<void>((resolve) => {
+                const onReady = () => {
+                    audio.removeEventListener("loadedmetadata", onReady);
+                    resolve();
+                };
+                audio.addEventListener("loadedmetadata", onReady);
+                audio.load();
+            });
+        }
+        audio.currentTime = startMs / 1000;
+        segmentEndMsRef.current = endMs;
+        setAudioCurrentMs(startMs);
+        setPlayingSegment(segmentIndex);
+        setActiveSegment(segmentIndex);
+        try {
+            await audio.play();
+        }
+        catch {
+            segmentEndMsRef.current = null;
+            setPlayingSegment(null);
+        }
+    }, [audioUrl, playingSegment, result, stopSegmentPlayback]);
 
     const handleFile = useCallback(async (f: File) => {
+        stopSegmentPlayback();
+        setAudioCurrentMs(0);
         setFile(f);
         setError(null);
         setResult(null);
@@ -542,7 +761,7 @@ export default function AppPage() {
             setError(err instanceof Error ? err.message : "transcription failed");
             setStatus("error");
         }
-    }, []);
+    }, [stopSegmentPlayback]);
     const loadLibrary = useCallback(async () => {
         setLibraryStatus("loading");
         setLibraryError(null);
@@ -584,12 +803,14 @@ export default function AppPage() {
         setActiveSection(section);
     }, []);
     const handleClear = useCallback(() => {
+        stopSegmentPlayback();
+        setAudioCurrentMs(0);
         setFile(null);
         setResult(null);
         setError(null);
         setStatus("idle");
         setActiveSegment(null);
-    }, []);
+    }, [stopSegmentPlayback]);
     const handleCopy = useCallback(async () => {
         if (!result)
             return;
@@ -606,12 +827,64 @@ export default function AppPage() {
             : activeSection === "voice"
                 ? "Voice"
                 : "Settings";
+    const selectedSegment = result && activeSegment !== null
+        ? (result.segments[activeSegment] ?? null)
+        : null;
+    const selectedNativeText = selectedSegment
+        ? (selectedSegment.original_text ?? selectedSegment.text)
+        : "";
+    const selectedScriptStyle = selectedNativeText
+        ? detectScriptStyle(selectedNativeText)
+        : null;
+    const selectedSegmentIndex = selectedSegment && activeSegment !== null
+        ? activeSegment
+        : null;
+    const selectedSegmentProgress = selectedSegment && selectedSegmentIndex !== null && playingSegment === selectedSegmentIndex
+        ? (audioCurrentMs - selectedSegment.start_ms)
+            / Math.max(1, selectedSegment.end_ms - selectedSegment.start_ms)
+        : 0;
+    const activeVoiceRecording = useMemo<VoiceAgentActiveRecording | null>(() => {
+        if (!result)
+            return null;
+        const transcriptSegments = result.segments.map((seg) => ({
+            text: seg.original_text ?? seg.text,
+            startSecond: seg.start_ms / 1000,
+            endSecond: seg.end_ms / 1000,
+        }));
+        const transcriptText = transcriptSegments.map((seg) => seg.text).join(" ").trim()
+            || result.segments.map((seg) => seg.text).join(" ").trim();
+        const name = file?.name ?? "Current Upload";
+        return {
+            name,
+            url: audioUrl ?? "",
+            index: 0,
+            analyzedAt: new Date().toISOString(),
+            transcript: {
+                text: transcriptText,
+                language: result.language,
+                durationInSeconds: result.duration_s,
+                segments: transcriptSegments,
+            },
+            analysis: buildVoiceAgentAnalysis(result),
+        };
+    }, [audioUrl, file?.name, result]);
+    const showVoiceOrb = activeSection === "voice"
+        || (activeSection === "dashboard" && Boolean(hasResult));
     return (<div className="h-dvh w-dvw flex overflow-hidden bg-background">
 
         <LeftSidebar activeSection={activeSection} onSelect={handleSelectSection} />
 
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <audio ref={audioRef} src={audioUrl ?? undefined} preload="metadata" onTimeUpdate={handleAudioTimeUpdate} onPause={() => {
+                    if (segmentEndMsRef.current != null) {
+                        segmentEndMsRef.current = null;
+                        setPlayingSegment(null);
+                    }
+                }} onEnded={() => {
+                    segmentEndMsRef.current = null;
+                    setPlayingSegment(null);
+                }} className="hidden" />
 
             <div className="shrink-0 h-14 flex items-center justify-between px-5 border-b border-border/40 bg-card/30">
 
@@ -686,7 +959,24 @@ export default function AppPage() {
                                 {hasResult && activeTab === "transcript" && (<motion.div key="transcript" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
                                     {result.segments.length > 0 ? (
                                     <ScrollArea className="h-full">
-                                        {result.segments.map((seg, i) => (<SegRow key={i} seg={seg} index={i} isActive={activeSegment === i} onClick={() => setActiveSegment(activeSegment === i ? null : i)} />))}
+                                        {audioUrl && (<div className="sticky top-0 z-10 border-b border-border/35 bg-background/95 backdrop-blur px-3 py-2.5">
+                                            <p className="font-mono text-[9px] tracking-[0.18em] uppercase text-muted-foreground/55 mb-1.5">
+                                                Source Audio
+                                            </p>
+                                            <audio src={audioUrl} controls preload="metadata" className="w-full h-9 rounded-md" />
+                                            <p className="text-[10px] text-muted-foreground/55 mt-1.5">
+                                                Use each segment’s play button to hear the exact transcript slice.
+                                            </p>
+                                        </div>)}
+                                        {result.segments.map((seg, i) => {
+                                            const segmentDuration = Math.max(1, seg.end_ms - seg.start_ms);
+                                            const segmentProgress = playingSegment === i
+                                                ? (audioCurrentMs - seg.start_ms) / segmentDuration
+                                                : 0;
+                                            return (<SegRow key={i} seg={seg} index={i} isActive={activeSegment === i} isPlaying={playingSegment === i} segmentProgress={segmentProgress} hasAudio={Boolean(audioUrl)} onClick={() => setActiveSegment(activeSegment === i ? null : i)} onPlaySegment={() => {
+                                                    void handlePlaySegment(i);
+                                                }} />);
+                                        })}
                                     </ScrollArea>
                                     ) : (
                                     <div className="h-full flex flex-col items-center justify-center gap-4 px-8">
@@ -1045,31 +1335,57 @@ export default function AppPage() {
                                 </div>)}
 
 
-                                {activeSegment !== null && result.segments[activeSegment] && (<motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-2 pt-3 border-t border-border/30">
+                                {selectedSegment && (<motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-2 pt-3 border-t border-border/30">
                                     <p className="text-[10px] tracking-widest uppercase text-muted-foreground/50 font-semibold">
-                                        Segment {activeSegment + 1}
+                                        Segment {(selectedSegmentIndex ?? 0) + 1}
                                     </p>
-                                    <div className="bg-muted/20 border border-border/30 rounded-lg p-3 space-y-1.5">
+                                    <div className="bg-muted/20 border border-border/30 rounded-lg p-3 space-y-2">
+                                        <button type="button" onClick={() => {
+                                                if (selectedSegmentIndex !== null) {
+                                                    void handlePlaySegment(selectedSegmentIndex);
+                                                }
+                                            }} disabled={!audioUrl} className={cn("w-full inline-flex items-center justify-center gap-2 rounded-md border px-2.5 py-1.5 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors", audioUrl
+                                            ? "border-primary/30 bg-primary/[0.08] text-primary hover:bg-primary/[0.14]"
+                                            : "border-border/40 bg-muted/30 text-muted-foreground/35 cursor-not-allowed")}>
+                                            {playingSegment === selectedSegmentIndex ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                                            {playingSegment === selectedSegmentIndex ? "Pause Segment" : "Play Segment"}
+                                        </button>
+                                        {playingSegment === selectedSegmentIndex && (<div className="h-1.5 w-full rounded-full bg-primary/12 overflow-hidden">
+                                            <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${Math.max(0, Math.min(100, selectedSegmentProgress * 100)).toFixed(1)}%` }} />
+                                        </div>)}
                                         <div className="flex items-center justify-between">
                                             <span className="text-[11px] text-muted-foreground/60">Time</span>
                                             <span className="font-mono text-[11px] text-foreground/70 tabular-nums">
-                                                {formatMs(result.segments[activeSegment].start_ms)} → {formatMs(result.segments[activeSegment].end_ms)}
+                                                {formatMs(selectedSegment.start_ms)} → {formatMs(selectedSegment.end_ms)}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <span className="text-[11px] text-muted-foreground/60">Duration</span>
                                             <span className="font-mono text-[11px] text-foreground/70 tabular-nums">
-                                                {result.segments[activeSegment].end_ms - result.segments[activeSegment].start_ms}ms
+                                                {selectedSegment.end_ms - selectedSegment.start_ms}ms
                                             </span>
                                         </div>
-                                        {result.segments[activeSegment].confidence != null && (
+                                        {selectedSegment.confidence != null && (
                                             <div className="flex items-center justify-between">
                                                 <span className="text-[11px] text-muted-foreground/60">Confidence</span>
                                                 <span className="font-mono text-[11px] text-foreground/70 tabular-nums">
-                                                    {(result.segments[activeSegment].confidence! * 100).toFixed(1)}%
+                                                    {(selectedSegment.confidence * 100).toFixed(1)}%
                                                 </span>
                                             </div>
                                         )}
+                                        {selectedNativeText && selectedScriptStyle && (<div className={cn("rounded-md border px-2.5 py-2 space-y-1", selectedScriptStyle.toneClass)}>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="font-mono text-[9px] tracking-[0.14em] uppercase opacity-80">
+                                                    Native Script
+                                                </span>
+                                                <span className="font-mono text-[9px] tracking-wide uppercase opacity-75">
+                                                    {selectedScriptStyle.label}
+                                                </span>
+                                            </div>
+                                            <p dir={selectedScriptStyle.direction ?? "ltr"} style={{ fontFamily: selectedScriptStyle.fontFamily }} className="text-[15px] leading-[1.8] text-foreground/85 break-words">
+                                                {selectedNativeText}
+                                            </p>
+                                        </div>)}
                                     </div>
                                 </motion.div>)}
                             </motion.div>)}
@@ -1078,9 +1394,18 @@ export default function AppPage() {
                 </div>
             </div>
 
-            {/* Voice Agent lives inside the /app shell as a sidebar section */}
-            {activeSection === "voice" && (
-                <MinimalVoiceAgent dockedLeft={260} />
+            {/* Voice Agent orb is available in voice mode and post-analysis dashboard mode */}
+            {showVoiceOrb && (
+                <MinimalVoiceAgent
+                    dockedLeft={
+                        activeSection === "voice"
+                            ? 260
+                            : activeSection === "dashboard" && hasResult
+                                ? 800
+                                : 86
+                    }
+                    preloadedRecording={activeVoiceRecording}
+                />
             )}
         </div>
     </div>);

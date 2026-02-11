@@ -59,16 +59,18 @@ type ChatEntry = { role: "user" | "assistant"; content: string };
 
 type MinimalVoiceAgentProps = {
   dockedLeft?: number;
+  dockedRight?: number;
   dockedBottom?: number;
+  preloadedRecording?: ActiveRecording | null;
 };
 
-type RecordingTranscriptSegment = {
+export type RecordingTranscriptSegment = {
   text: string;
   startSecond: number;
   endSecond: number;
 };
 
-type RecordingAnalysis = {
+export type RecordingAnalysis = {
   summary: string;
   keyPoints: string[];
   actionItems: string[];
@@ -76,7 +78,7 @@ type RecordingAnalysis = {
   sentiment: "positive" | "neutral" | "negative" | "mixed";
 };
 
-type ActiveRecording = {
+export type ActiveRecording = {
   name: string;
   url: string;
   index: number;
@@ -99,7 +101,12 @@ const formatClock = (seconds: number) => {
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-export function MinimalVoiceAgent({ dockedLeft = 60, dockedBottom = 20 }: MinimalVoiceAgentProps) {
+export function MinimalVoiceAgent({
+  dockedLeft = 60,
+  dockedRight,
+  dockedBottom = 20,
+  preloadedRecording = null,
+}: MinimalVoiceAgentProps) {
   const [agentState, setAgentState] = useState<AgentState>(null);
   const [lastUserText, setLastUserText] = useState<string | null>(null);
   const [lastAssistantText, setLastAssistantText] = useState<string | null>(null);
@@ -136,6 +143,17 @@ export function MinimalVoiceAgent({ dockedLeft = 60, dockedBottom = 20 }: Minima
     activeRecordingRef.current = rec;
     _setActiveRecording(rec);
   }, []);
+
+  useEffect(() => {
+    if (!preloadedRecording) return;
+    const current = activeRecordingRef.current;
+    const sameRecording =
+      current?.name === preloadedRecording.name
+      && current?.analyzedAt === preloadedRecording.analyzedAt;
+    if (!sameRecording) {
+      setActiveRecording(preloadedRecording);
+    }
+  }, [preloadedRecording, setActiveRecording]);
 
   /* ── helpers ─────────────────────────────────────────────── */
 
@@ -328,6 +346,12 @@ export function MinimalVoiceAgent({ dockedLeft = 60, dockedBottom = 20 }: Minima
           activeRecordingName: activeRecordingRef.current?.name ?? null,
           activeRecordingIndex: activeRecordingRef.current?.index ?? null,
           activeRecordingSummary: activeRecordingRef.current?.analysis?.summary ?? null,
+          activeRecordingLanguage: activeRecordingRef.current?.transcript?.language ?? null,
+          activeRecordingDurationInSeconds:
+            activeRecordingRef.current?.transcript?.durationInSeconds ?? null,
+          activeRecordingTranscriptText: activeRecordingRef.current?.transcript?.text ?? null,
+          activeRecordingSegments: activeRecordingRef.current?.transcript?.segments ?? [],
+          activeRecordingAnalysis: activeRecordingRef.current?.analysis ?? null,
         }),
       );
 
@@ -618,7 +642,9 @@ export function MinimalVoiceAgent({ dockedLeft = 60, dockedBottom = 20 }: Minima
         className="fixed z-[52] flex flex-col items-center gap-2 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{
           bottom: isActive ? "50%" : `${dockedBottom}px`,
-          left: isActive ? "50%" : `${dockedLeft}px`,
+          ...(isActive
+            ? { left: "50%" }
+            : (dockedRight != null ? { right: `${dockedRight}px` } : { left: `${dockedLeft}px` })),
           transform: isActive ? "translate(-50%, 50%)" : "translate(0, 0)",
         }}
       >

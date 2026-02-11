@@ -41,6 +41,9 @@
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, monospace;
+  --font-native-devanagari: "Noto Sans Devanagari", "Noto Sans", sans-serif;
+  --font-native-tamil: "Noto Sans Tamil", "Noto Sans", sans-serif;
+  --font-native-kannada: "Noto Sans Kannada", "Noto Sans", sans-serif;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
@@ -97,6 +100,9 @@
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, monospace;
+  --font-native-devanagari: "Noto Sans Devanagari", "Noto Sans", sans-serif;
+  --font-native-tamil: "Noto Sans Tamil", "Noto Sans", sans-serif;
+  --font-native-kannada: "Noto Sans Kannada", "Noto Sans", sans-serif;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 5px;

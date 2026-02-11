@@ -1,0 +1,768 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "insights": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "primary_intent": {
+          "type": "string"
+        },
+        "intent_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "secondary_intents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "currency": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "type",
+              "value",
+              "currency",
+              "confidence"
+            ]
+          }
+        },
+        "obligations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "speaker": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "due_date": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "text",
+              "speaker",
+              "due_date",
+              "confidence"
+            ]
+          }
+        },
+        "regulatory_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "sentiment": {
+          "type": "string",
+          "enum": [
+            "positive",
+            "neutral",
+            "negative",
+            "mixed"
+          ]
+        },
+        "emotions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "label",
+              "score"
+            ]
+          }
+        },
+        "pii_detected": {
+          "type": "boolean"
+        },
+        "action_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ingestion": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "detected_language": {
+              "type": "string"
+            },
+            "language_confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "noise_level": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "unknown"
+              ]
+            },
+            "call_quality_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "speaker_diarization": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "speaker_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "speaker_labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "speaker_count",
+                "speaker_labels"
+              ]
+            },
+            "tamper_replay_risk": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "unknown"
+              ]
+            },
+            "ingest_flags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "detected_language",
+            "language_confidence",
+            "noise_level",
+            "call_quality_score",
+            "speaker_diarization",
+            "tamper_replay_risk",
+            "ingest_flags"
+          ]
+        },
+        "transcription": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "asr_summary": {
+              "type": "string"
+            },
+            "transcript_language": {
+              "type": "string"
+            },
+            "multilingual_switching": {
+              "type": "boolean"
+            },
+            "asr_confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "domain_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "profanity_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "pii_items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "type",
+                  "value",
+                  "confidence"
+                ]
+              }
+            }
+          },
+          "required": [
+            "asr_summary",
+            "transcript_language",
+            "multilingual_switching",
+            "asr_confidence",
+            "domain_terms",
+            "profanity_terms",
+            "pii_items"
+          ]
+        },
+        "understanding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "financial_entity_layer_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "obligation_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "emotion_stress_markers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "regulatory_phrase_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "financial_entity_layer_count",
+            "obligation_count",
+            "emotion_stress_markers",
+            "regulatory_phrase_count"
+          ]
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "needs_human_review": {
+              "type": "boolean"
+            },
+            "review_reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "correction_queue": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "current_value": {
+                    "type": "string"
+                  },
+                  "suggested_value": {
+                    "type": "string"
+                  },
+                  "rationale": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "current_value",
+                  "suggested_value",
+                  "rationale"
+                ]
+              }
+            }
+          },
+          "required": [
+            "needs_human_review",
+            "review_reasons",
+            "correction_queue"
+          ]
+        }
+      },
+      "required": [
+        "summary",
+        "primary_intent",
+        "intent_confidence",
+        "secondary_intents",
+        "entities",
+        "obligations",
+        "regulatory_flags",
+        "risk_level",
+        "sentiment",
+        "emotions",
+        "pii_detected",
+        "action_items",
+        "ingestion",
+        "transcription",
+        "understanding",
+        "review"
+      ]
+    },
+    "ui_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/ui_node"
+        }
+      },
+      "required": [
+        "root"
+      ]
+    }
+  },
+  "required": [
+    "insights",
+    "ui_spec"
+  ],
+  "$defs": {
+    "stat_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "tone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "tone"
+      ]
+    },
+    "entity_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "type",
+        "value",
+        "currency",
+        "confidence"
+      ]
+    },
+    "obligation_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "speaker": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "due_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "text",
+        "speaker",
+        "due_date",
+        "confidence"
+      ]
+    },
+    "review_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "current_value": {
+          "type": "string"
+        },
+        "suggested_value": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "current_value",
+        "suggested_value",
+        "rationale"
+      ]
+    },
+    "insights_layout_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "subtitle"
+      ]
+    },
+    "section_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "description"
+      ]
+    },
+    "summary_card_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "text"
+      ]
+    },
+    "stat_grid_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stat_item"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "entity_table_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entity_row"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "rows"
+      ]
+    },
+    "obligation_list_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/obligation_item"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "items"
+      ]
+    },
+    "tag_list_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "tags"
+      ]
+    },
+    "action_list_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "items"
+      ]
+    },
+    "confidence_meter_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ]
+    },
+    "review_queue_props": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/review_item"
+          }
+        }
+      },
+      "required": [
+        "title",
+        "items"
+      ]
+    },
+    "ui_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "InsightsLayout",
+            "Section",
+            "SummaryCard",
+            "StatGrid",
+            "EntityTable",
+            "ObligationList",
+            "TagList",
+            "ActionList",
+            "ConfidenceMeter",
+            "ReviewQueue"
+          ]
+        },
+        "props": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/insights_layout_props"
+            },
+            {
+              "$ref": "#/$defs/section_props"
+            },
+            {
+              "$ref": "#/$defs/summary_card_props"
+            },
+            {
+              "$ref": "#/$defs/stat_grid_props"
+            },
+            {
+              "$ref": "#/$defs/entity_table_props"
+            },
+            {
+              "$ref": "#/$defs/obligation_list_props"
+            },
+            {
+              "$ref": "#/$defs/tag_list_props"
+            },
+            {
+              "$ref": "#/$defs/action_list_props"
+            },
+            {
+              "$ref": "#/$defs/confidence_meter_props"
+            },
+            {
+              "$ref": "#/$defs/review_queue_props"
+            }
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ui_node"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "props",
+        "children"
+      ]
+    }
+  }
+}
